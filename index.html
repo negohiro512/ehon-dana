@@ -1,0 +1,536 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#faf9f5;color:#141413}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>絵本だな</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&family=Klee+One:wght@600&display=swap">
+<style>
+/* 図書館のこどもコーナーの低い本だな。紙は若葉色、木の棚板に表紙を立てて見せる。強い色は「図書館でさがす」の緑だけ */
+:root{
+  --paper:#f2f6f0; --card:#ffffff; --ink:#2a3134; --sub:#647069; --line:#dce5da;
+  --leaf:#2e7d5b; --leaf-ink:#ffffff; --leaf-soft:#e1efe6;
+  --sun:#ffd257; --sun-ink:#4a3500; --sun-soft:#fff3cc;
+  --wood:#cf9d68; --wood-edge:#a8743f; --shadow:rgba(60,50,30,.12);
+  --round:"Zen Maru Gothic","Hiragino Maru Gothic ProN","BIZ UDPGothic","Hiragino Sans",sans-serif;
+  --hand:"Klee One","Zen Maru Gothic","Hiragino Maru Gothic ProN",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --paper:#161c1a; --card:#1f2725; --ink:#e8eee9; --sub:#a3afa8; --line:#2f3a36;
+  --leaf:#6cc79b; --leaf-ink:#0e2018; --leaf-soft:#1e372b;
+  --sun:#f0c44c; --sun-ink:#2b2000; --sun-soft:#3a3219;
+  --wood:#8d6641; --wood-edge:#6b4a2b; --shadow:rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --paper:#161c1a; --card:#1f2725; --ink:#e8eee9; --sub:#a3afa8; --line:#2f3a36;
+  --leaf:#6cc79b; --leaf-ink:#0e2018; --leaf-soft:#1e372b;
+  --sun:#f0c44c; --sun-ink:#2b2000; --sun-soft:#3a3219;
+  --wood:#8d6641; --wood-edge:#6b4a2b; --shadow:rgba(0,0,0,.35); color-scheme:dark}
+
+html,body{min-height:100%}
+body{background:var(--paper);color:var(--ink);font:500 16px/1.7 var(--round);padding-inline:16px;padding-block:0;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit}
+[hidden]{display:none!important}
+:focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:8px}
+.app{max-width:520px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
+
+/* ---------- 見出し ---------- */
+.brand{display:flex;align-items:flex-end;gap:14px}
+.spines{display:flex;align-items:flex-end;gap:3px;padding-bottom:5px;border-bottom:5px solid var(--wood);flex:none}
+.spines i{display:block;width:9px;border-radius:2px 2px 0 0}
+.spines i:nth-child(1){height:30px;background:#ef8f72}
+.spines i:nth-child(2){height:24px;background:#6fb1d8}
+.spines i:nth-child(3){height:34px;background:#f2b93b}
+.spines i:nth-child(4){height:27px;background:#86c06e;transform:rotate(9deg);transform-origin:bottom left;margin-left:2px}
+h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
+.lead{margin:6px 0 0;font-size:14px;color:var(--sub);line-height:1.5}
+
+/* ---------- 検索 ---------- */
+.search{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:8px 6px;display:flex;flex-direction:column;gap:8px}
+.search label{font:700 15px var(--round)}
+.field{position:relative}
+.field svg{position:absolute;left:16px;top:50%;translate:0 -50%;width:22px;height:22px;stroke:var(--sub);fill:none;stroke-width:2.4;stroke-linecap:round;pointer-events:none}
+#q{width:100%;box-sizing:border-box;font:700 18px var(--round);padding:15px 48px 15px 50px;border-radius:999px;border:2px solid var(--line);background:var(--card);color:var(--ink);box-shadow:0 2px 0 var(--shadow);-webkit-appearance:none;appearance:none}
+#q::placeholder{color:var(--sub);font-weight:500;font-size:16px}
+#q:focus{outline:none;border-color:var(--leaf)}
+#q::-webkit-search-cancel-button{display:none}
+#clear{position:absolute;right:8px;top:50%;translate:0 -50%;width:36px;height:36px;border-radius:50%;border:none;background:var(--leaf-soft);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}
+.chips{display:flex;gap:8px;overflow-x:auto;padding-block:2px 4px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+.chip:hover{border-color:var(--leaf)}
+.note{font-size:13px;color:var(--sub);min-height:1.5em;margin:0}
+
+/* ---------- 表紙（まだ本物の表紙は載せない。色と形でつくる仮の表紙） ---------- */
+.cv{position:relative;overflow:hidden;aspect-ratio:3/4;max-width:100%;border-radius:3px 7px 7px 3px;background:var(--a);color:var(--c);
+  box-shadow:inset 4px 0 0 rgba(0,0,0,.10),0 3px 6px var(--shadow);display:flex;flex-direction:column;justify-content:flex-start;flex:none}
+.cv span{position:relative;z-index:1;padding:10% 11%;font-weight:900;line-height:1.25;word-break:break-all;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.cv::after{content:"";position:absolute;background:var(--b)}
+.cv.s0{justify-content:flex-end}
+.cv.s0::after{width:46%;aspect-ratio:1;border-radius:50%;top:9%;right:10%}
+.cv.s1::after{width:150%;height:48%;left:-25%;bottom:-22%;border-radius:50%}
+.cv.s2::after{width:62%;aspect-ratio:1;border-radius:50%;left:-12%;bottom:-12%}
+.cv.s3::after{left:0;right:0;height:20%;bottom:14%}
+.cv.sm{width:60px;font-size:10px}
+.cv.md{width:92px;font-size:12px}
+.cv.lg{width:132px;font-size:16px}
+
+/* ---------- 検索結果 ---------- */
+.list{display:flex;flex-direction:column;gap:10px;margin:0;padding:0;list-style:none}
+.row{display:grid;grid-template-columns:60px 1fr auto;gap:14px;align-items:center;width:100%;text-align:left;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:12px 12px 12px 14px;cursor:pointer;box-shadow:0 2px 0 var(--shadow)}
+.row:hover{border-color:var(--leaf)}
+.row .txt{min-width:0}
+.row .t{font:700 17px/1.4 var(--round);text-wrap:balance;overflow-wrap:anywhere}
+.row .m{font-size:13px;color:var(--sub);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
+.row .go{width:10px;height:10px;border-right:2.5px solid var(--sub);border-top:2.5px solid var(--sub);rotate:45deg;margin-right:4px}
+.tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
+.tag{font-size:12px;font-weight:700;line-height:1.4;padding:2px 9px;border-radius:999px;background:var(--leaf-soft);color:var(--ink)}
+.tag.prize{background:var(--sun-soft)}
+.tag.prize::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sun);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 1.5px var(--sun-ink) inset}
+.more{align-self:center;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:10px 22px;font-weight:700;cursor:pointer}
+.empty{background:var(--card);border:1.5px dashed var(--line);border-radius:16px;padding:20px;text-align:center;color:var(--sub);font-size:14px}
+
+/* ---------- 本だな（木の棚板に表紙を立てる） ---------- */
+.shelf h3{font:900 18px/1.4 var(--round);margin:0 0 2px;text-wrap:balance}
+.shelf .sub{font-size:13px;color:var(--sub);margin:0}
+.board{--cvh:122.67px;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;padding:14px 4px 6px;margin-inline:-4px;
+  background:linear-gradient(to bottom,transparent calc(14px + var(--cvh)),var(--wood) calc(14px + var(--cvh)),var(--wood) calc(24px + var(--cvh)),var(--wood-edge) calc(24px + var(--cvh)),var(--wood-edge) calc(27px + var(--cvh)),transparent calc(27px + var(--cvh)));
+  background-attachment:local;scrollbar-width:thin}
+.book{flex:0 0 92px;scroll-snap-align:start;background:none;border:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column}
+.book .n{margin-top:20px;font-size:13px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.book .y{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
+.book.now .cv{outline:3px solid var(--sun);outline-offset:3px}
+.book.now .n::before{content:"いま見ている本";display:block;font-size:11px;color:var(--sub);font-weight:700}
+.book:hover .cv{translate:0 -3px}
+.book .cv{transition:translate .15s}
+
+/* ---------- 本のページ ---------- */
+.bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:8px;display:flex;align-items:center;gap:8px}
+.back{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px 8px 12px;font-weight:700;font-size:15px;cursor:pointer}
+.back::before{content:"";width:8px;height:8px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;rotate:45deg;margin-left:4px}
+.page{display:flex;flex-direction:column;gap:26px}
+.hero{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:end}
+.hero .txt{min-width:0}
+.hero h2{font:900 24px/1.35 var(--round);margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.hero .who{margin:8px 0 0;font-size:15px;font-weight:700}
+.wholink{border:none;background:none;padding:0;cursor:pointer;font:inherit;font-weight:700;color:var(--ink);text-align:left;text-decoration:underline;text-decoration-color:var(--leaf);text-decoration-thickness:2px;text-underline-offset:4px}
+.wholink span{font-size:12px;color:var(--sub);text-decoration:none;display:inline-block;margin-left:6px;font-weight:700}
+.near .tier h4{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.near .tier h4 button{border:none;background:none;padding:0;cursor:pointer;font:700 13px var(--round);color:var(--leaf);white-space:nowrap}
+.hero .pub{margin:0;font-size:14px;color:var(--sub)}
+@media (max-width:380px){.hero{grid-template-columns:1fr;justify-items:start}}
+.lib{display:flex;align-items:center;gap:14px;background:var(--leaf);color:var(--leaf-ink);border-radius:18px;padding:16px 18px;text-decoration:none;box-shadow:0 3px 0 var(--wood-edge)}
+.lib svg{flex:none;width:34px;height:34px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
+.lib b{display:block;font:900 19px/1.3 var(--round)}
+.lib small{display:block;font-size:13px;line-height:1.5;opacity:.92}
+.lib.off{background:var(--card);color:var(--sub);border:1.5px dashed var(--line);box-shadow:none}
+.lib.off b{color:var(--ink);font-size:17px}
+/* コラム：黄色い便箋。見出しだけ手書き風 */
+.eyebrow{font:700 12px var(--round);letter-spacing:.12em;color:var(--sub)}
+.col{background:var(--sun-soft);border-radius:4px 18px 18px 18px;padding:18px 20px 16px;display:flex;flex-direction:column;gap:8px}
+.col h3{font:600 21px/1.45 var(--hand);margin:0;text-wrap:balance}
+.col p{margin:0;font-size:15px;line-height:1.9}
+.read{align-self:flex-start;margin-top:4px;border:none;background:var(--card);color:var(--ink);border-radius:999px;padding:9px 18px 9px 20px;font-weight:700;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 2px 0 var(--shadow)}
+.read::after{content:"";width:7px;height:7px;border-right:2.5px solid currentColor;border-top:2.5px solid currentColor;rotate:45deg}
+.essay{display:flex;flex-direction:column;gap:16px;max-width:34em}
+.essay h2{font:600 27px/1.45 var(--hand);margin:0 0 4px;text-wrap:balance}
+.essay p{margin:0;font-size:17px;line-height:2.05}
+.essay p:last-child{font-weight:700}
+.book .why{margin-top:20px;align-self:flex-start;font-size:11px;font-weight:700;line-height:1.5;padding:0 8px;border-radius:999px;background:var(--leaf-soft);color:var(--ink)}
+.book .why+.n{margin-top:4px}
+/* 段のある本だな（リストのページ）：本の高さをそろえて、段ごとに棚板を引く */
+.board.grid{--rowh:226px;display:grid;grid-template-columns:repeat(auto-fill,92px);grid-auto-rows:var(--rowh);justify-content:space-between;gap:14px 12px;overflow:visible;padding:14px 0 0;margin:0;
+  background:repeating-linear-gradient(to bottom,transparent 0 calc(14px + var(--cvh)),var(--wood) calc(14px + var(--cvh)) calc(24px + var(--cvh)),var(--wood-edge) calc(24px + var(--cvh)) calc(27px + var(--cvh)),transparent calc(27px + var(--cvh)) calc(var(--rowh) + 14px))}
+.book.ghost{cursor:default;opacity:.55}
+.near{display:flex;flex-direction:column;gap:10px}
+.near .tier h4{margin:0;font:700 14px/1.5 var(--round);color:var(--sub)}
+.near .tier+.tier{margin-top:6px}
+.book.ghost:hover .cv{translate:none}
+/* 賞・図書館のタグ（押せる） */
+.tags button.tag{border:none;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.tags button.tag::after{content:"";width:5px;height:5px;border-right:2px solid currentColor;border-top:2px solid currentColor;rotate:45deg;opacity:.6}
+.tags button.tag:hover{outline:2px solid var(--leaf);outline-offset:0}
+.srcs{display:flex;flex-direction:column;gap:14px}
+.srcs h3{font:900 18px/1.4 var(--round);margin:0}
+.srcs .grp{display:flex;flex-direction:column;gap:8px}
+.srcs .grp>span{font-size:13px;color:var(--sub);font-weight:700}
+.srcs .chips{flex-wrap:wrap;overflow:visible}
+.about{margin:0;font-size:15px;color:var(--sub);line-height:1.8}
+.ext{color:var(--ink);font-size:14px;font-weight:700}
+.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.jump .chip{font-size:13px;padding:4px 12px}
+.sec{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 64px)}
+.sec h3 small{font:700 13px var(--round);color:var(--sub);margin-left:8px}
+details.eds ul.src{font-size:13px}
+details.eds ul.src li{display:block}
+details.eds ul.src a{color:var(--ink)}
+details.eds{border-top:1.5px solid var(--line);padding-top:10px}
+details.eds summary{cursor:pointer;font-weight:700;font-size:15px;color:var(--sub);padding:4px 0}
+details.eds ul{margin:6px 0 0;padding:0;list-style:none;font-size:13px;color:var(--sub);display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+details.eds li{display:grid;grid-template-columns:3.6em 1fr;gap:8px}
+details.eds li span{min-width:0;overflow-wrap:anywhere}
+
+.cv.img{background:var(--card);box-shadow:0 3px 6px var(--shadow)}.cv.img::after{display:none}.cv.img img{width:100%;height:100%;object-fit:contain;display:block}
+.credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
+footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
+footer a{color:inherit}
+@media (prefers-reduced-motion:reduce){.book .cv{transition:none}.book:hover .cv{translate:none}}
+</style>
+
+<div class="app">
+  <header class="brand">
+    <div class="spines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+    <div>
+      <h1>絵本だな</h1>
+      <p class="lead">お気に入りの一冊から、つぎに読む一冊へ。</p>
+    </div>
+  </header>
+
+  <div class="search" id="searchBox">
+    <label for="q">いま、くりかえし読んでいる本は？</label>
+    <div class="field">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
+      <input id="q" type="search" autocomplete="off" enterkeyhint="search" placeholder="書名のはじめ（ひらがなでOK）">
+      <button id="clear" type="button" aria-label="入力を消す" hidden>×</button>
+    </div>
+    <div class="chips" id="chips" aria-label="ためしに探す">
+      <button class="chip" type="button">だるまさんが</button>
+      <button class="chip" type="button">はらぺこあおむし</button>
+      <button class="chip" type="button">パンどろぼう</button>
+      <button class="chip" type="button">ぐりとぐら</button>
+      <button class="chip" type="button">ノラネコぐんだん</button>
+      <button class="chip" type="button">しろくまちゃん</button>
+    </div>
+    <p class="note" id="status">本だなを準備しています…</p>
+  </div>
+
+  <main id="view" aria-live="polite"></main>
+
+  <footer>
+    約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.7
+  </footer>
+</div>
+
+<script src="config.js"></script>
+<script>
+const EXCLUDE_PUB=/日本障害者リハビリテーション協会|ふきのとう文庫|さいたま市立中央図書館|石田製本/;
+// コラム。lead＝本のページに出す書き出し、body＝「つづきを読む」の先
+const COLUMNS={
+  kagakui:{who:"加岳井, 広",title:"50歳で、はじめての絵本を出した人",draft:true,
+    lead:["『だるまさんが』を描いたかがくいひろしさんは、絵本作家になる前の28年間、特別支援学校の先生でした。はじめての絵本『おもちのきもち』が出たのは2005年。50歳のときです。",
+          "教室では、生徒一人ひとりに合わせて、反応を引き出す教材や、楽しめる授業を考えていたそうです。言葉で返事をするのがむずかしい子もいる教室で、何をしたら笑うのか、どこで体が動くのかを、毎日見ていた人です。"],
+    body:["『だるまさんが』は、その3年後に出ました。ページをめくるたびに、だるまさんが転んだり、のびたり、しぼんだりします。まだ言葉を話さない赤ちゃんが、体をゆらして笑う。読んでいる大人も、つい一緒に体が動く。教室で見てきたことが、そのまま一冊になったように見えます。",
+          "同じ年に『だるまさんの』、翌年に『だるまさんと』が出て、3冊でひと組になりました。",
+          "2009年、かがくいさんは54歳で亡くなりました。絵本作家として過ごしたのは4年ほど。そのあいだに描いた絵本は16冊です。おもち、やかん、おふとん、まくら。家の中にあるものが、ちょっとだけ動き出す話がたくさんあります。",
+          "「だるまさん」の3冊は、そのあとも読まれつづけ、1000万部を超えました。亡くなってからは、原画やアイデアノート、先生だったころの授業の記録を集めた展覧会が、各地の美術館をめぐっています。",
+          "16冊のどれにも、28年分の教室が入っています。"],
+    sources:[["講談社『おもちのきもち』作品ページ（著者紹介）","https://www.kodansha.co.jp/book/products/0000138141"],
+             ["北海道新聞「かがくいひろしの世界展①『だるまさんが』」","https://www.hokkaido-np.co.jp/article/1226891/"],
+             ["神戸ファッション美術館「かがくいひろしの世界展」のお知らせ","https://resemom.jp/release/prtimes/20240619/117263.html"],
+             ["国立新美術館 アートコモンズ「かがくいひろしの世界展」","https://www.nact.jp/artcommons/user/detail/79271"]]}
+};
+// 外国語版がまだ索引に混ざっているので、表示のときに外す（索引を作り直したら要らなくなる）
+// 本の大きさ・形だけでまとめた叢書は「おなじシリーズ」に使わない（中身のつながりがないため。10/3 おばけパーティで発覚）
+const FORMAT_SERIES=/ボードブック|ビッグブック|大型|大きな|ペーパーバック|普及版|紙芝居|ポケット版|おでかけ|愛蔵版|特装版|新装版|ミニ/;
+const isForeign=w=>/案内番号|[가-힣]/.test(w.t)||/中国|北京|上海|连环画|台湾/.test(w.p)||(!/[ぁ-んァ-ヶ]/.test(w.t)&&/出版社$/.test(w.p));
+
+const $=s=>document.querySelector(s);
+const nfkc=s=>(s||"").normalize("NFKC");
+const kata=s=>nfkc(s).replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)).replace(/[\s・,、ー]/g,"");
+const nt=s=>nfkc(s).split(/ : | \/ |\s=\s/)[0].replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～-]/g,"");
+const who=c=>(c||"").replace(/,\s*\d{4}-?\d{0,4}\s*$/,"").trim();
+// 作者の名寄せ用の鍵（「森, 比左志」「森比左志」「わかやまけん／著」の書き方の違いをそろえる）
+const nw=c=>nfkc(who(c)).replace(/[\s,，・]/g,"").replace(/[／\/].*$/,"");
+const np=p=>nfkc(p).replace(/^(株式会社|\(株\))|株式会社$/g,"").trim();
+const WHONAME=new Map();
+const authorName=a=>nice((WHONAME.get(a)||{name:a}).name);
+const COLBYWHO=Object.fromEntries(Object.entries(COLUMNS).map(([id,c])=>[nw(c.who),id]));
+const sbase=s=>nfkc(s).split(/\s*;\s*/)[0].trim();
+// 「加岳井, 広」→「加岳井 広」、「カール, エリック」→「エリック・カール」、「Carle, Eric」→「Eric Carle」
+function nice(c){if(!c)return "";const p=c.split(/,\s*/);if(p.length<2)return c;
+  if(/^[A-Za-z]/.test(p[0]))return p[1]+" "+p[0];
+  if(/^[ァ-ヶー・]+$/.test(p[0]+p[1]))return p[1]+"・"+p[0];
+  return p[0]+" "+p[1];}
+function isbn10(i){i=(i||"").replace(/[^0-9X]/g,"");if(i.length===10)return i;if(i.length!==13||!i.startsWith("978"))return "";
+  const b=i.slice(3,12);let s=0;for(let k=0;k<9;k++)s+=(10-k)*+b[k];const c=(11-s%11)%11;return b+(c===10?"X":c);}
+function esc(s){return (s||"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+// 仮の表紙：書名から色と形を決める（同じ本はいつも同じ表紙）
+const PAL=[["#f7c9b6","#ef8f72","#5a2a1c"],["#bfe0f2","#7bb8dc","#1f3c50"],["#d3eac7","#8cc474","#24401a"],["#fde7a6","#f2b93b","#4a3500"],
+           ["#e5d6f2","#b590da","#36204d"],["#f7d3de","#e78fac","#4f1d2e"],["#d4ece8","#6cbbae","#173c37"],["#efe2cf","#cfa774","#4a3218"]];
+function hash(s){let h=7;for(const ch of s)h=(h*31+ch.codePointAt(0))>>>0;return h;}
+function cover(title,size){const h=hash(title),p=PAL[h%PAL.length];const t=nfkc(title).split(/ : |:/)[0];
+  return `<div class="cv ${size} s${(h>>4)%4}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}" aria-hidden="true"><span>${esc(t.slice(0,size==="lg"?18:12))}</span></div>`;}
+
+let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
+let shown=40,stack=[],listScroll=0;
+
+async function load(){
+  try{
+    const res=await fetch("data.txt");
+    const b64=(await res.text()).trim();
+    const bin=atob(b64);const u=new Uint8Array(bin.length);for(let k=0;k<bin.length;k++)u[k]=bin.charCodeAt(k);
+    let txt;
+    if(u[0]===0x1f&&u[1]===0x8b){
+      const ds=new Blob([u.buffer]).stream().pipeThrough(new DecompressionStream("gzip"));
+      txt=await new Response(ds).text();
+    }else txt=new TextDecoder().decode(u);
+    const recs=JSON.parse(txt).filter(r=>!EXCLUDE_PUB.test(r.p));
+    const m=new Map();
+    for(const r of recs){
+      // 同じ書名・同じ出版社は1作品にまとめる（版ごとに作者の書き方がばらばらなため。10/3）
+      const key=nt(r.t)+"|"+np(r.p);
+      let w=m.get(key);
+      if(!w){w={key,t:nfkc(r.t).split(/ : /)[0],y:r.y,c:"",a:"",cs:new Map(),p:r.p,eds:[],L:0,A:[],yr:"9999",s:new Set()};m.set(key,w);}
+      const a=nw(r.c);
+      if(a){w.cs.set(a,(w.cs.get(a)||0)+1);
+        const n=WHONAME.get(a)||{name:who(r.c),forms:new Map()};const f=who(r.c);n.forms.set(f,(n.forms.get(f)||0)+1);WHONAME.set(a,n);}
+      w.eds.push(r);if(r.yr&&r.yr<w.yr){w.yr=r.yr;w.p=r.p;}
+      if(r.L>w.L)w.L=r.L; if(r.A)for(const a of r.A)if(!w.A.includes(a))w.A.push(a);
+      if(r.s)w.s.add(sbase(r.s));
+    }
+    WORKS=[...m.values()];
+    // 作者の表示名：「姓, 名」の形を優先し、いちばん多い書き方
+    for(const n of WHONAME.values()){let best="",bs=-1;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=best;delete n.forms;}
+    WORKS.forEach((w,i)=>{
+      w.i=i;BYKEY.set(w.key,w);w.score=w.L*3+w.A.length*4+Math.min(w.eds.length,5);
+      if(w.cs.size){w.a=[...w.cs].sort((x,y)=>y[1]-x[1])[0][0];w.c=WHONAME.get(w.a).name;}
+      for(const a of w.cs.keys()){if(!BYWHO.has(a))BYWHO.set(a,[]);BYWHO.get(a).push(w);}
+      for(const s of w.s){if(!BYSER.has(s))BYSER.set(s,[]);BYSER.get(s).push(w);}
+      const k=nt(w.t);if(!BYNT.has(k))BYNT.set(k,[]);BYNT.get(k).push(w);
+    });
+    try{SRC=await (await fetch("lists.json")).json();
+      for(const s of SRC)for(const sec of s.secs)for(const it of sec.items){if(!it[1])continue;
+        if(!MEMB.has(it[1]))MEMB.set(it[1],[]);MEMB.get(it[1]).push({s,sec,note:it[2]});}
+    }catch(e){SRC=[];}
+    // シリーズ（Hiro確定の34＋自動判定。10/3）
+    try{const S=await (await fetch("series.json")).json();
+      S.forEach((x,si)=>{const ws=[],seen=new Set();
+        for(const e of x.k){const ks=Array.isArray(e)?e:[e];
+          // 版ちがいは1冊にまとめて、いちばん多く引かれている作品を代表に
+          const cand=ks.map(k=>BYKEY.get(k)).filter(Boolean).filter(w=>!seen.has(w));
+          if(!cand.length)continue;cand.forEach(w=>seen.add(w));
+          const rep=cand.sort((a,b)=>b.score-a.score)[0];ws.push(rep);cand.forEach(w=>REPOF.set(w,rep));}
+        ws.sort((a,b)=>a.yr.localeCompare(b.yr));
+        if(ws.length<2)return;
+        const ser={name:x.n,confirmed:!!x.c,works:ws};SERIESLIST.push(ser);
+        for(const w of seen)if(!SEROF.has(w))SEROF.set(w,ser);});
+    }catch(e){}
+    READY=true;
+    render();
+  }catch(e){$("#status").textContent="本だなを開けませんでした。ページを開きなおしてください（"+e.message+"）";}
+}
+
+const yr=w=>w.yr!=="9999"?w.yr:"";
+function tags(w,max){const out=[];
+  if(w.L)out.push(`<span class="tag">おすすめ ${w.L}</span>`);
+  for(const a of w.A.slice(0,max))out.push(`<span class="tag prize">${esc(a)}</span>`);
+  return out.length?`<div class="tags">${out.join("")}</div>`:"";}
+function ghost(title,why){return `<div class="book ghost" title="まだ索引に入っていない本">${cover(title,"md")}${why?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(nfkc(title))}</span><span class="y"></span></div>`;}
+function book(w,now,why){return `<button class="book${now?" now":""}" type="button" data-i="${w.i}">${cover(w.t,"md")}${why&&!now?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(w.t)}</span><span class="y">${yr(w)}</span></button>`;}
+// items は本の配列、または {w, why} の配列
+function shelf(title,sub,items,now){if(!items.length)return "";
+  return `<section class="shelf"><h3>${esc(title)}</h3>${sub?`<p class="sub">${esc(sub)}</p>`:""}<div class="board">${items.map(x=>x.w?book(x.w,x.w===now,x.why):book(x,x===now)).join("")}</div></section>`;}
+// この本が載っている賞・図書館のリスト（押すとそのリストへ）
+const yrOf=l=>(l.match(/\d{4}/)||[l])[0];
+function srcTags(w){const ms=MEMB.get(w.key)||[];if(!ms.length)return tags(w,3);
+  const aw=[],lb=new Map();
+  for(const m of ms){if(m.s.kind==="award"){const n=m.note&&m.note!==m.s.name?" "+m.note:"";aw.push(`<button type="button" class="tag prize" data-src="${m.s.id}" data-sec="${m.sec.id}">${esc(m.s.name+" "+yrOf(m.sec.label)+n)}</button>`);}
+    else if(!lb.has(m.s.id))lb.set(m.s.id,`<button type="button" class="tag" data-src="${esc(m.s.id)}" data-sec="${m.sec.id}">${esc(m.s.name)}</button>`);}
+  return `<div class="tags">${aw.concat([...lb.values()]).join("")}</div>`;}
+function srcChips(){const g=k=>SRC.filter(s=>s.kind===k).map(s=>`<button class="chip" type="button" data-src="${esc(s.id)}">${esc(s.name)}</button>`).join("");
+  return SRC.length?`<section class="srcs"><h3>リストからさがす</h3>
+    <div class="grp"><span>絵本の賞</span><div class="chips">${g("award")}</div></div>
+    <div class="grp"><span>図書館・自治体のおすすめ</span><div class="chips">${g("lib")}</div></div></section>`:"";}
+function colCard(id,withLead){const c=COLUMNS[id];
+  return `<article class="col"><div class="eyebrow">コラム${c.draft?"・下書き":""}</div><h3>${esc(c.title)}</h3>
+    ${(withLead?c.lead:[c.lead[0]]).map(p=>`<p>${esc(p)}</p>`).join("")}
+    <button class="read" type="button" data-col="${id}">つづきを読む</button></article>`;}
+
+// 同じ書名は1冊だけ（作者の書き方が版で違うと別の作品になるため）
+function uniq(ws,n){const seen=new Set(),out=[];for(const w of ws){const k=nt(w.t);if(seen.has(k))continue;seen.add(k);out.push(w);if(out.length>=n)break;}return out;}
+// ---------- はじめの画面と検索結果 ----------
+function render(){
+  const q=$("#q").value.trim();$("#clear").hidden=!q;
+  if(!READY)return;
+  if(!q){
+    const top=uniq(WORKS.filter(w=>w.L).sort((a,b)=>b.L-a.L||b.score-a.score),16);
+    const used=new Set(top.map(w=>nt(w.t)));
+    const prize=uniq(WORKS.filter(w=>w.A.length&&!used.has(nt(w.t))).sort((a,b)=>b.A.length-a.A.length||b.score-a.score),16);
+    $("#status").textContent=`${WORKS.length.toLocaleString()}作品から探せます。書名のはじめを入れるか、下の本を開いてみてください。`;
+    $("#view").innerHTML=`<div class="page">
+      ${shelf("図書館がよくすすめている本","全国の図書館・自治体の選書リストに載っている数の順",top)}
+      ${colCard("kagakui",false)}
+      ${shelf("絵本の賞に選ばれた本","ようちえん絵本大賞・日本絵本賞・MOE絵本屋さん大賞など",prize)}
+      ${srcChips()}
+    </div>`;
+    return;
+  }
+  const kq=kata(q),nq=nt(q);
+  const okw=w=>!isForeign(w)&&!/点訳|点字/.test(w.t);
+  let hits=WORKS.filter(w=>w.y&&w.y.startsWith(kq)&&okw(w));
+  if(hits.length<5){const seen=new Set(hits);hits=hits.concat(WORKS.filter(w=>!seen.has(w)&&okw(w)&&nt(w.t).includes(nq)));}
+  hits.sort((a,b)=>b.score-a.score||a.y.localeCompare(b.y));
+  if(!hits.length){
+    $("#status").textContent="";
+    $("#view").innerHTML=`<div class="empty">「${esc(q)}」ではじまる本は見つかりませんでした。<br>書名の一部だけ、またはひらがなで入れてみてください。</div>`;
+    return;
+  }
+  $("#status").textContent=`${hits.length.toLocaleString()}冊。おすすめに多く載っている本が上にきます`;
+  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${cover(w.t,"sm")}<div class="txt"><div class="t">${esc(w.t)}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
+    ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}`;
+}
+
+// ---------- 本のページ ----------
+function findWork(title,c){const ws=BYNT.get(nt(title))||[];return ws.find(x=>[...x.cs.keys()].some(a=>a.includes(c)))||ws[0];}
+const PIN=`<svg viewBox="0 0 32 32" aria-hidden="true"><path d="M4 12 16 5l12 7"/><path d="M7 12v13M12.5 12v13M19.5 12v13M25 12v13"/><path d="M3 27h26"/></svg>`;
+
+// ---- 表紙（楽天ブックス・Q004 A）：本のページの1冊だけ・1.1秒に1回・このタブの間だけ覚える ----
+const RK=window.RAKUTEN||{};
+const RK_ON=!!(RK.appId&&RK.accessKey);
+function isbn13(i){i=(i||"").replace(/[^0-9X]/g,"");if(i.length===13)return i;if(i.length!==10)return "";
+  const b="978"+i.slice(0,9);let s=0;for(let k=0;k<12;k++)s+=(+b[k])*(k%2?3:1);return b+((10-s%10)%10);}
+let rkLast=0,rkQ=Promise.resolve();
+function rkCover(isbn){
+  const key="rk:"+isbn;
+  try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(c);}catch(e){}
+  rkQ=rkQ.then(async()=>{
+    const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));rkLast=Date.now();
+    const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,isbn,format:"json",formatVersion:"2"});
+    try{const j=await (await fetch(u)).json();const it=(j.Items||[])[0]||{};
+      const url=(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300");
+      try{sessionStorage.setItem(key,url);}catch(e){}return url;}catch(e){return "";}
+  });return rkQ;
+}
+async function heroCover(isb){
+  if(!RK_ON||!isb)return;const i13=isbn13(isb);if(!i13)return;
+  const url=await rkCover(i13);const el=document.querySelector(".hero .cv");
+  if(!url||!el||el.dataset.isbn!==isb)return;
+  el.classList.add("img");el.innerHTML=`<img src="${esc(url)}" alt="表紙" referrerpolicy="no-referrer">`;
+  el.insertAdjacentHTML("afterend",'<div class="credit">表紙：<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a></div>');
+}
+function show(i){
+  const w=WORKS[i];
+  $("#searchBox").hidden=true;
+  const isb=w.eds.map(e=>e.i).find(x=>isbn10(x));
+  // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
+  // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
+  const tiers={つづき:[],作者:[],シリーズ:[]},seen=new Set([nt(w.t)]);let serLabel="つづき";
+  const add=(x,t)=>{const k=nt(x.t);if(x===w){if(t==="つづき"&&!tiers[t].includes(x))tiers[t].push(x);return;}if(seen.has(k)||isForeign(x))return;seen.add(k);tiers[t].push(x);};
+  const ser=SEROF.get(w);
+  if(ser){const rep=REPOF.get(w);ser.works.map(x=>x===rep?w:x).forEach(x=>add(x,"つづき"));serLabel=`つづき（${ser.name}・全${ser.works.length}冊）`;}
+  (BYWHO.get(w.a)||[]).slice().sort((a,b)=>a.yr.localeCompare(b.yr)).slice(0,40).forEach(x=>add(x,"作者"));
+  let serName="";
+  for(const s of [...w.s].filter(s=>s&&!FORMAT_SERIES.test(s))){
+    if(!serName)serName=s.split(/[.．]\s*/)[0];
+    (BYSER.get(s)||[]).slice().sort((a,b)=>a.yr.localeCompare(b.yr)).slice(0,12).forEach(x=>add(x,"シリーズ"));
+  }
+  const rows=[[serLabel,tiers.つづき],[`おなじ作者（${authorName(w.a)}）`,tiers.作者],[`おなじシリーズ（${serName}）`,tiers.シリーズ]]
+    .filter(([,l])=>l.some(x=>x!==w));
+  const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
+  const col=COLBYWHO[w.a];
+  const eds=w.eds.slice().sort((a,b)=>(a.yr||"").localeCompare(b.yr||"")).map(e=>`<li>${e.yr||"不明"}<span>${esc(e.p)}${e.s?"　"+esc(e.s):""}</span></li>`).join("");
+  const facts=esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"");
+  $("#view").innerHTML=`<div class="page">
+    ${backBar()}
+    <div class="hero"><div>${cover(w.t,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
+    ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
+         :`<div class="lib off">${PIN}<span><b>図書館で直接は調べられません</b><small>この本は ISBN がないため。書名で図書館の検索にかけてください</small></span></div>`}
+    ${col?colCard(col,true):""}
+    ${nearHtml}
+    <details class="eds"><summary>この本の版（${w.eds.length}）</summary><ul>${eds}</ul></details>
+  </div>`;
+  heroCover(isb);
+  window.scrollTo(0,0);
+}
+
+function backBar(){const prev=stack[stack.length-2];
+  const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":"まえの本へ";
+  return `<div class="bar"><button class="back" id="back" type="button">${label}</button></div>`;}
+
+// ---------- コラムのページ ----------
+function showCol(id){
+  const c=COLUMNS[id];$("#searchBox").hidden=true;
+  const works=uniq((BYWHO.get(nw(c.who))||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),40);
+  $("#view").innerHTML=`<div class="page">
+    ${backBar()}
+    <article class="essay">
+      <div class="eyebrow">コラム${c.draft?"・下書き":""}</div>
+      <h2>${esc(c.title)}</h2>
+      ${c.lead.concat(c.body).map(p=>`<p>${esc(p)}</p>`).join("")}
+    </article>
+    ${shelf(`${authorName(nw(c.who))}さんの絵本`,"出た順。開くと、近くの図書館でさがせます",works)}
+    <details class="eds"><summary>このコラムの出典（${c.sources.length}）</summary><ul class="src">${c.sources.map(s=>`<li><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("")}</ul></details>
+  </div>`;
+  window.scrollTo(0,0);
+}
+// ---------- 賞・図書館のリストのページ ----------
+function showSrc(sid,secId){
+  const s=SRC.find(x=>x.id===sid);if(!s)return;$("#searchBox").hidden=true;
+  const secs=s.secs.map(sec=>{
+    const items=sec.items.map(it=>{const w=it[1]&&BYKEY.get(it[1]);return w?book(w,false,it[2]):ghost(it[0],it[2]);}).join("");
+    return `<section class="shelf sec" id="sec-${sec.id}"><h3>${esc(sec.label)}${sec.age?`<small>${esc(sec.age)}</small>`:""}</h3><div class="board grid">${items}</div></section>`;}).join("");
+  const n=s.secs.reduce((a,x)=>a+x.items.length,0);
+  $("#view").innerHTML=`<div class="page">
+    ${backBar()}
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <div class="eyebrow">${s.kind==="award"?"絵本の賞":"図書館・自治体のおすすめ"}</div>
+      <h2 style="font:900 26px/1.35 var(--round);margin:0;text-wrap:balance">${esc(s.name)}</h2>
+      <p class="about">${esc(s.about)}。${s.kind==="award"?`${s.secs.length}回ぶん、${n}冊。新しい回が上です。`:`${n}冊。`}</p>
+      <a class="ext" href="${s.url}" target="_blank" rel="noopener">${s.kind==="award"?"賞の公式ページ":"リストの元のページ"}を見る</a>
+    </div>
+    ${s.secs.length>3?`<div class="jump">${s.secs.map(x=>`<button class="chip" type="button" data-jump="sec-${x.id}">${esc(s.kind==="award"?x.label.replace(/第\d+回（(.*?)）/,"$1"):x.label.slice(0,14))}</button>`).join("")}</div>`:""}
+    ${secs}
+  </div>`;
+  const t=secId&&document.getElementById("sec-"+secId);
+  if(t)t.scrollIntoView({block:"start"});else window.scrollTo(0,0);
+}
+// ---------- 作者のページ ----------
+function showWho(c){
+  $("#searchBox").hidden=true;
+  const all=uniq((BYWHO.get(c)||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),400);
+  const col=COLBYWHO[c];
+  // 冊数が多い作者は、出た年代ごとの段に分ける
+  const groups=new Map();
+  for(const x of all){const d=yr(x)?`${yr(x).slice(0,3)}0年代`:"年がわからない本";if(!groups.has(d))groups.set(d,[]);groups.get(d).push(x);}
+  const first=all.find(x=>yr(x)),last=[...all].reverse().find(x=>yr(x));
+  const span=first&&last?(first.yr===last.yr?`${first.yr}年`:`${first.yr}年から${last.yr}年まで`):"";
+  const body=all.length>12
+    ?[...groups].map(([d,l])=>`<section class="shelf"><h3>${esc(d)}<small style="font:700 13px var(--round);color:var(--sub);margin-left:8px">${l.length}冊</small></h3><div class="board grid">${l.map(x=>book(x)).join("")}</div></section>`).join("")
+    :`<section class="shelf"><div class="board grid">${all.map(x=>book(x)).join("")}</div></section>`;
+  $("#view").innerHTML=`<div class="page">
+    ${backBar()}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="eyebrow">作者</div>
+      <h2 style="font:900 28px/1.3 var(--round);margin:0">${esc(authorName(c))}</h2>
+      <p class="about">${all.length}冊${span?`。${span}`:""}。出た順に並べています</p>
+    </div>
+    ${col?colCard(col,false):""}
+    ${body}
+  </div>`;
+  window.scrollTo(0,0);
+}
+function go(key){const last=stack[stack.length-1];
+  if(key===undefined){$("#searchBox").hidden=false;render();window.scrollTo(0,listScroll);return;}
+  if(key.startsWith("c"))showCol(key.slice(1));
+  else if(key.startsWith("a"))showWho(decodeURIComponent(key.slice(1)));
+  else if(key.startsWith("s")){const [sid,sec]=key.slice(1).split("#");showSrc(sid,sec);}
+  else show(+key.slice(1));}
+
+document.addEventListener("click",e=>{
+  const j=e.target.closest("[data-jump]");
+  if(j){document.getElementById(j.dataset.jump)?.scrollIntoView({block:"start"});return;}
+  const b=e.target.closest("[data-i],[data-col],[data-src],[data-who]");
+  if(b){if(!stack.length)listScroll=window.scrollY;
+    const key=b.dataset.who?"a"+b.dataset.who:b.dataset.col?"c"+b.dataset.col:b.dataset.src?"s"+b.dataset.src+"#"+(b.dataset.sec||""):"b"+b.dataset.i;
+    stack.push(key);go(key);return;}
+  if(e.target.closest("#back")){stack.pop();go(stack[stack.length-1]);return;}
+  if(e.target.closest("#more")){shown+=40;render();return;}
+  const c=e.target.closest(".chip");
+  if(c){$("#q").value=c.textContent;shown=40;render();return;}
+  if(e.target.closest("#clear")){$("#q").value="";shown=40;render();$("#q").focus();}
+});
+let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;tm=setTimeout(render,120);});
+if(RK_ON){const n=document.getElementById("coverNote");if(n)n.innerHTML='表紙は本を開いたときに<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a>から読み込みます（<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Developers</a>）。';}
+render();load();
+</script>
+
+</body></html>
