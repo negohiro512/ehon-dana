@@ -281,9 +281,15 @@ function wIsbns(w){if(!w._isbs){const eds=w.eds.slice().sort((a,b)=>(b.yr||"").l
 function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
   if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
 function gbNext(img){const l=(img.dataset.alt||"").split(",").filter(Boolean);
-  if(!l.length){img.remove();return;}img.dataset.alt=l.slice(1).join(",");img.src=THUMB(l[0]);}
+  if(!l.length){rkThumb(img);return;}img.dataset.alt=l.slice(1).join(",");img.src=THUMB(l[0]);}
+// Google のどの版にも表紙がない本だけ、楽天の表紙を本だなに出す（見えている本から1冊ずつ。Q009・10/5）
+function rkThumb(img){const cv=img.parentNode,i=cv&&cv.dataset.rk;
+  if(!RK_ON||!i||cv.closest(".hero")){img.remove();return;}img.removeAttribute("onload");img.removeAttribute("onerror");
+  rkCover(i,0,()=>img.isConnected).then(r=>{if(!img.isConnected)return;
+    if(!r||!r.img){img.remove();return;}
+    img.onload=()=>cv.classList.add("has");img.onerror=()=>img.remove();img.src=r.img;});}
 function thumb(w,size){const c=cover(w.t,size),l=wIsbns(w);if(!l.length||!THUMB)return c;
-  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" data-alt="${l.slice(1).join(",")}" src="${THUMB(l[0])}" onload="gbLoad(this)" onerror="gbNext(this)"></div>`);}
+  return c.replace('class="cv ',`data-rk="${l[0]}" class="cv `).replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" data-alt="${l.slice(1).join(",")}" src="${THUMB(l[0])}" onload="gbLoad(this)" onerror="gbNext(this)"></div>`);}
 
 let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
 let shown=40,stack=[],listScroll=0;
@@ -415,23 +421,28 @@ const RK=window.RAKUTEN||{};
 const RK_ON=!!(RK.appId&&RK.accessKey);
 function isbn13(i){i=(i||"").replace(/[^0-9X]/g,"");if(i.length===13)return i;if(i.length!==10)return "";
   const b="978"+i.slice(0,9);let s=0;for(let k=0;k<12;k++)s+=(+b[k])*(k%2?3:1);return b+((10-s%10)%10);}
-let rkLast=0,rkQ=Promise.resolve();
-function rkCover(isbn){return rkGet({isbn},"rk2:"+isbn,it=>it[0]);}
+// 楽天への問い合わせは1つの列に並べ、1.1秒に1回。本のページの表紙（pri 1）を本だなの表紙（pri 0）より先に。
+// 画面から消えた本だなの分は、聞かずに飛ばす（10/5）
+let rkLast=0,rkPend=[],rkBusy=false;
+async function rkRun(){if(rkBusy)return;rkBusy=true;
+  while(rkPend.length){const j=rkPend.shift();if(j.live&&!j.live()){j.res(null);continue;}
+    const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
+    if(j.live&&!j.live()){j.res(null);continue;}rkLast=Date.now();j.res(await j.fn());}
+  rkBusy=false;}
+function rkCover(isbn,pri=1,live){return rkGet({isbn},"rk2:"+isbn,it=>it[0],pri,live);}
 // ISBNのない本：書名＋出版社で楽天を引き、書名と出版社が合うものだけ使う（10/4）
 const rkn=s=>nfkc(s).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：-]/g,"");
 function rkFind(w){const t=nfkc(w.t).split(/ : |:/)[0].trim(),p=np(w.p).replace(/[,，].*$/,"").replace(/\(.*?\)|（.*?）/g,"").replace(/^.*[:：]\s*/,"").trim();
   if(!t||!p)return Promise.resolve(null);
   return rkGet({title:t,publisherName:p,hits:"10"},"rkt2:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))));}
-function rkGet(params,key,pick){
+function rkGet(params,key,pick,pri=1,live){
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
-  try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(c);}catch(e){}
-  rkQ=rkQ.then(async()=>{
-    const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));rkLast=Date.now();
+  return new Promise(res=>{rkPend.push({pri,live,res,fn:async()=>{
     const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",...params});
     try{const j=await (await fetch(u)).json();const it=pick((j.Items||[]).map(x=>x.Item||x));
       const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
       try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){return null;}
-  });return rkQ;
+  }});rkPend.sort((a,b)=>b.pri-a.pri);rkRun();});
 }
 async function heroCover(isb,w){
   if(!RK_ON)return;const el0=document.querySelector(".hero .cv");const tag=el0&&el0.dataset.isbn;
