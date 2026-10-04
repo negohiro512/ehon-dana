@@ -168,6 +168,8 @@ details.eds li{display:grid;grid-template-columns:3.6em 1fr;gap:8px}
 details.eds li span{min-width:0;overflow-wrap:anywhere}
 
 .cv.img{background:var(--card);box-shadow:0 3px 6px var(--shadow)}.cv.img::after{display:none}.cv.img img{width:100%;height:100%;object-fit:contain;display:block}
+.buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
+.cv.img a{display:block;width:100%;height:100%}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
 footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
 footer a{color:inherit}
@@ -389,12 +391,12 @@ const RK_ON=!!(RK.appId&&RK.accessKey);
 function isbn13(i){i=(i||"").replace(/[^0-9X]/g,"");if(i.length===13)return i;if(i.length!==10)return "";
   const b="978"+i.slice(0,9);let s=0;for(let k=0;k<12;k++)s+=(+b[k])*(k%2?3:1);return b+((10-s%10)%10);}
 let rkLast=0,rkQ=Promise.resolve();
-function rkCover(isbn){return rkGet({isbn},"rk:"+isbn,it=>it[0]).then(x=>x?x.img:"");}
+function rkCover(isbn){return rkGet({isbn},"rk2:"+isbn,it=>it[0]);}
 // ISBNのない本：書名＋出版社で楽天を引き、書名と出版社が合うものだけ使う（10/4）
 const rkn=s=>nfkc(s).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：-]/g,"");
 function rkFind(w){const t=nfkc(w.t).split(/ : |:/)[0].trim(),p=np(w.p).replace(/[,，].*$/,"").replace(/\(.*?\)|（.*?）/g,"").replace(/^.*[:：]\s*/,"").trim();
   if(!t||!p)return Promise.resolve(null);
-  return rkGet({title:t,publisherName:p,hits:"10"},"rkt:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))));}
+  return rkGet({title:t,publisherName:p,hits:"10"},"rkt2:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))));}
 function rkGet(params,key,pick){
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(c);}catch(e){}
@@ -402,22 +404,26 @@ function rkGet(params,key,pick){
     const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));rkLast=Date.now();
     const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",...params});
     try{const j=await (await fetch(u)).json();const it=pick((j.Items||[]).map(x=>x.Item||x));
-      const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||""}:null;
+      const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
       try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){return null;}
   });return rkQ;
 }
 async function heroCover(isb,w){
   if(!RK_ON)return;const el0=document.querySelector(".hero .cv");const tag=el0&&el0.dataset.isbn;
-  let url="";
-  if(isb){const i13=isbn13(isb);if(!i13)return;url=await rkCover(i13);}
-  else{const r=await rkFind(w);if(!r||!r.isbn)return;url=r.img;
+  let r=null;
+  if(isb){const i13=isbn13(isb);if(!i13)return;r=await rkCover(i13);}
+  else{r=await rkFind(w);if(!r||!r.isbn)return;
     // 楽天で見つかったISBNで、図書館のボタンもつなぐ
     const off=document.querySelector(".lib.off");
     if(off&&document.querySelector(".hero .cv")===el0&&isbn10(r.isbn))off.outerHTML=`<a class="lib" href="https://calil.jp/book/${isbn10(r.isbn)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます（いまの版）</small></span></a>`;}
   const el=document.querySelector(".hero .cv");
-  if(!url||!el||el!==el0||el.dataset.isbn!==tag)return;
-  el.classList.add("img");el.innerHTML=`<img src="${esc(url)}" alt="表紙" referrerpolicy="no-referrer">`;
-  el.insertAdjacentHTML("afterend",'<div class="credit">表紙：<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a></div>');
+  if(!r||!r.img||!el||el!==el0||el.dataset.isbn!==tag)return;
+  const shop=r.url||"https://books.rakuten.co.jp/";
+  el.classList.add("img");el.innerHTML=`<a href="${esc(shop)}" target="_blank" rel="noopener" aria-label="楽天ブックスでこの本を見る"><img src="${esc(r.img)}" alt="表紙" referrerpolicy="no-referrer"></a>`;
+  el.insertAdjacentHTML("afterend",`<div class="credit">表紙：<a href="${esc(shop)}" target="_blank" rel="noopener">楽天ブックス</a></div>`);
+  // 図書館のボタンの下に、目立たない「買う」ボタン（図書館が先。10/4 Hiro）
+  const lib=document.querySelector(".page .lib");
+  if(r.url&&lib&&!document.querySelector(".buy"))lib.insertAdjacentHTML("afterend",`<a class="buy" href="${esc(r.url)}" target="_blank" rel="noopener">手元に置きたくなったら<b>楽天ブックスで買う</b></a>`);
 }
 function show(i){
   const w=WORKS[i];
