@@ -272,8 +272,15 @@ const THUMB=i=>`https://books.google.com/books/content?vid=ISBN${i}&printsec=fro
 const GB_LOGO=`<a class="gb" href="https://books.google.com/" target="_blank" rel="noopener"><img src="https://books.google.com/googlebooks/images/poweredby.png" alt="Powered by Google" width="62" height="30"></a>`;
 function gbMark(img){const sec=img.closest(".shelf");const h=sec?sec.querySelector("h3"):document.querySelector("#status");
   if(h&&!h.querySelector(".gb"))h.insertAdjacentHTML("beforeend",GB_LOGO);}
-function thumb(w,size){const c=cover(w.t,size),i=wIsbn(w);if(!i||!THUMB)return c;
-  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" src="${THUMB(i)}" onload="if(this.naturalWidth<20||(this.naturalWidth===128&&(this.naturalHeight===184||this.naturalHeight===170)))this.remove();else{this.parentNode.classList.add('has');gbMark(this)}" onerror="this.remove()"></div>`);}
+// 表紙の候補：今の版（px）→ 新しい版から順。Google に表紙のない版は次の版で試す（最大4つ。10/5）
+function wIsbns(w){if(!w._isbs){const eds=w.eds.slice().sort((a,b)=>(b.yr||"").localeCompare(a.yr||""));
+  const l=[w.px,...eds.map(e=>e.i)].filter(x=>x&&isbn10(x)).map(isbn13);w._isbs=[...new Set(l)].slice(0,4);}return w._isbs;}
+function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
+  if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
+function gbNext(img){const l=(img.dataset.alt||"").split(",").filter(Boolean);
+  if(!l.length){img.remove();return;}img.dataset.alt=l.slice(1).join(",");img.src=THUMB(l[0]);}
+function thumb(w,size){const c=cover(w.t,size),l=wIsbns(w);if(!l.length||!THUMB)return c;
+  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" data-alt="${l.slice(1).join(",")}" src="${THUMB(l[0])}" onload="gbLoad(this)" onerror="gbNext(this)"></div>`);}
 
 let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
 let shown=40,stack=[],listScroll=0;
