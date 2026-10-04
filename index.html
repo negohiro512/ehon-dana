@@ -265,7 +265,7 @@ function hash(s){let h=7;for(const ch of s)h=(h*31+ch.codePointAt(0))>>>0;return
 function cover(title,size){const h=hash(title),p=PAL[h%PAL.length];const t=nfkc(title).split(/ : |:/)[0];
   return `<div class="cv ${size} s${(h>>4)%4}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}" aria-hidden="true"><span>${esc(t.slice(0,size==="lg"?18:12))}</span></div>`;}
 // 本だなの表紙：国立国会図書館サーチの書影（ISBNで決まる画像。画面に入ったものから読む。無ければ仮の表紙のまま。10/4 Q006）
-function wIsbn(w){if(w._isb===undefined){const x=w.eds.map(e=>e.i).find(i=>isbn10(i));w._isb=x?isbn13(x):"";}return w._isb;}
+function wIsbn(w){if(w._isb===undefined){const x=w.eds.map(e=>e.i).find(i=>isbn10(i))||w.px;w._isb=x?isbn13(x):"";}return w._isb;}
 // 本だなの表紙：Google ブックス（Q007 A・10/4）。国会図書館の書影は他サイトから埋め込めない（403）ため使わない
 // 条件：Powered by Google の表示、Google ブックスへのリンク。表紙のない本は灰色の画像（128x184 / 128x170）が返るので仮の表紙のまま
 const THUMB=i=>`https://books.google.com/books/content?vid=ISBN${i}&printsec=frontcover&img=1&zoom=1`;
@@ -312,6 +312,8 @@ async function load(){
       for(const s of w.s){if(!BYSER.has(s))BYSER.set(s,[]);BYSER.get(s).push(w);}
       const k=nt(w.t);if(!BYNT.has(k))BYNT.set(k,[]);BYNT.get(k).push(w);
     });
+    // 今の版のISBN（ISBNのない昔の本に、楽天で書名＋出版社が合ったものだけ。ISBNだけを残す・Q008）
+    try{const P=await (await fetch("isbn_plus.json")).json();for(const k in P){const w=BYKEY.get(k);if(w)w.px=P[k];}}catch(e){}
     try{SRC=await (await fetch("lists.json")).json();
       for(const s of SRC)for(const sec of s.secs)for(const it of sec.items){if(!it[1])continue;
         if(!MEMB.has(it[1]))MEMB.set(it[1],[]);MEMB.get(it[1]).push({s,sec,note:it[2]});}
@@ -441,7 +443,7 @@ async function heroCover(isb,w){
 function show(i){
   const w=WORKS[i];
   $("#searchBox").hidden=true;
-  const isb=w.eds.map(e=>e.i).find(x=>isbn10(x));
+  const isb=w.eds.map(e=>e.i).find(x=>isbn10(x))||w.px||"";
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
   // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
   const tiers={つづき:[],作者:[],シリーズ:[]},seen=new Set([nt(w.t)]);let serLabel="つづき";
