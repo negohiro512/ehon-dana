@@ -167,6 +167,7 @@ details.eds ul{margin:6px 0 0;padding:0;list-style:none;font-size:13px;color:var
 details.eds li{display:grid;grid-template-columns:3.6em 1fr;gap:8px}
 details.eds li span{min-width:0;overflow-wrap:anywhere}
 
+.cv img.ndl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;opacity:0;transition:opacity .2s}.cv.has img.ndl{opacity:1}.cv.has{box-shadow:0 3px 6px var(--shadow)}
 .cv.img{background:var(--card);box-shadow:0 3px 6px var(--shadow)}.cv.img::after{display:none}.cv.img img{width:100%;height:100%;object-fit:contain;display:block}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
 .cv.img a{display:block;width:100%;height:100%}
@@ -207,7 +208,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.7
+    <span id="coverNote">表紙はまだ仮のものです。</span>表紙の一部は<a href="https://ndlsearch.ndl.go.jp/" target="_blank" rel="noopener">国立国会図書館サーチ</a>の書影です。図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.7
   </footer>
 </div>
 
@@ -261,6 +262,10 @@ const PAL=[["#f7c9b6","#ef8f72","#5a2a1c"],["#bfe0f2","#7bb8dc","#1f3c50"],["#d3
 function hash(s){let h=7;for(const ch of s)h=(h*31+ch.codePointAt(0))>>>0;return h;}
 function cover(title,size){const h=hash(title),p=PAL[h%PAL.length];const t=nfkc(title).split(/ : |:/)[0];
   return `<div class="cv ${size} s${(h>>4)%4}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}" aria-hidden="true"><span>${esc(t.slice(0,size==="lg"?18:12))}</span></div>`;}
+// 本だなの表紙：国立国会図書館サーチの書影（ISBNで決まる画像。画面に入ったものから読む。無ければ仮の表紙のまま。10/4 Q006）
+function wIsbn(w){if(w._isb===undefined){const x=w.eds.map(e=>e.i).find(i=>isbn10(i));w._isb=x?isbn13(x):"";}return w._isb;}
+function thumb(w,size){const c=cover(w.t,size),i=wIsbn(w);if(!i)return c;
+  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" src="https://ndlsearch.ndl.go.jp/thumbnail/${i}.jpg" onload="if(this.naturalWidth>20)this.parentNode.classList.add('has');else this.remove()" onerror="this.remove()"></div>`);}
 
 let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
 let shown=40,stack=[],listScroll=0;
@@ -327,7 +332,7 @@ function tags(w,max){const out=[];
   for(const a of w.A.slice(0,max))out.push(`<span class="tag prize">${esc(a)}</span>`);
   return out.length?`<div class="tags">${out.join("")}</div>`:"";}
 function ghost(title,why){return `<div class="book ghost" title="まだ索引に入っていない本">${cover(title,"md")}${why?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(nfkc(title))}</span><span class="y"></span></div>`;}
-function book(w,now,why){return `<button class="book${now?" now":""}" type="button" data-i="${w.i}">${cover(w.t,"md")}${why&&!now?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(w.t)}</span><span class="y">${yr(w)}</span></button>`;}
+function book(w,now,why){return `<button class="book${now?" now":""}" type="button" data-i="${w.i}">${thumb(w,"md")}${why&&!now?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(w.t)}</span><span class="y">${yr(w)}</span></button>`;}
 // items は本の配列、または {w, why} の配列
 function shelf(title,sub,items,now){if(!items.length)return "";
   return `<section class="shelf"><h3>${esc(title)}</h3>${sub?`<p class="sub">${esc(sub)}</p>`:""}<div class="board">${items.map(x=>x.w?book(x.w,x.w===now,x.why):book(x,x===now)).join("")}</div></section>`;}
@@ -377,7 +382,7 @@ function render(){
     return;
   }
   $("#status").textContent=`${hits.length.toLocaleString()}冊。おすすめに多く載っている本が上にきます`;
-  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${cover(w.t,"sm")}<div class="txt"><div class="t">${esc(w.t)}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
+  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(w.t)}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
     ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}`;
 }
 
@@ -449,7 +454,7 @@ function show(i){
   const facts=esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
-    <div class="hero"><div>${cover(w.t,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
+    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
