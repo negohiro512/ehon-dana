@@ -243,7 +243,10 @@ const kata=s=>nfkc(s).replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0
 const nt=s=>nfkc(s).split(/ : | \/ |\s=\s/)[0].replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～-]/g,"");
 const who=c=>(c||"").replace(/,\s*\d{4}-?\d{0,4}\s*$/,"").trim();
 // 作者の名寄せ用の鍵（「森, 比左志」「森比左志」「わかやまけん／著」の書き方の違いをそろえる）
-const nw=c=>nfkc(who(c)).replace(/[\s,，・]/g,"").replace(/[／\/].*$/,"");
+// 「／」のあとが役割（作・文・絵…）なら外す。「林/木林」のように姓と名の区切りならつなぐ。「A / B絵」のように空白つきは別の人なので前だけ（10/5）
+const ROLE=/^[\s〔\[（(]*(著|作|文|絵|訳|編|画|詩|案|さく|え|ぶん|やく|原作|原案|監修|企画|構成|写真|再話|脚本)/;
+const slashName=(s,sep)=>s.replace(/\s+[／\/]\s+.*$/,"").replace(/[／\/](.*)$/,(m,t)=>ROLE.test(t)?"":sep+t.replace(/[／\/].*$/,""));
+const nw=c=>slashName(nfkc(who(c)),"").replace(/[\s,，・]/g,"");
 const np=p=>nfkc(p).replace(/^(株式会社|\(株\))|株式会社$/g,"").trim();
 const WHONAME=new Map();
 const authorName=a=>nice((WHONAME.get(a)||{name:a}).name);
@@ -311,7 +314,7 @@ async function load(){
     }
     WORKS=[...m.values()];
     // 作者の表示名：「姓, 名」の形を優先し、いちばん多い書き方
-    for(const n of WHONAME.values()){let best="",bs=-1;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=best;delete n.forms;}
+    for(const n of WHONAME.values()){let best=[...n.forms.keys()][0]||"",bs=-Infinity;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=slashName(nfkc(best)," ").trim();delete n.forms;}
     WORKS.forEach((w,i)=>{
       w.i=i;BYKEY.set(w.key,w);w.score=w.L*3+w.A.length*4+Math.min(w.eds.length,5);
       if(w.cs.size){w.a=[...w.cs].sort((x,y)=>y[1]-x[1])[0][0];w.c=WHONAME.get(w.a).name;}
