@@ -208,7 +208,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>表紙の一部は<a href="https://ndlsearch.ndl.go.jp/" target="_blank" rel="noopener">国立国会図書館サーチ</a>の書影です。図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.7
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.7
   </footer>
 </div>
 
@@ -264,7 +264,9 @@ function cover(title,size){const h=hash(title),p=PAL[h%PAL.length];const t=nfkc(
   return `<div class="cv ${size} s${(h>>4)%4}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}" aria-hidden="true"><span>${esc(t.slice(0,size==="lg"?18:12))}</span></div>`;}
 // 本だなの表紙：国立国会図書館サーチの書影（ISBNで決まる画像。画面に入ったものから読む。無ければ仮の表紙のまま。10/4 Q006）
 function wIsbn(w){if(w._isb===undefined){const x=w.eds.map(e=>e.i).find(i=>isbn10(i));w._isb=x?isbn13(x):"";}return w._isb;}
-function thumb(w,size){const c=cover(w.t,size),i=wIsbn(w);if(!i)return c;
+// 10/4：国会図書館の書影は他サイトからの埋め込みを受け付けない（403）ため止めた。出どころはQ007で決める
+const THUMB=null;
+function thumb(w,size){const c=cover(w.t,size),i=wIsbn(w);if(!i||!THUMB)return c;
   return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" src="https://ndlsearch.ndl.go.jp/thumbnail/${i}.jpg" onload="if(this.naturalWidth>20)this.parentNode.classList.add('has');else this.remove()" onerror="this.remove()"></div>`);}
 
 let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
