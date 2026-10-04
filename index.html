@@ -167,6 +167,8 @@ details.eds ul{margin:6px 0 0;padding:0;list-style:none;font-size:13px;color:var
 details.eds li{display:grid;grid-template-columns:3.6em 1fr;gap:8px}
 details.eds li span{min-width:0;overflow-wrap:anywhere}
 
+.gb{display:inline-block;margin-left:10px;vertical-align:middle;line-height:0;opacity:.85}.gb img{height:15px;width:auto}
+.gbl{font-size:13px;margin:8px 0 0}.gbl a{color:var(--sub)}
 .cv img.ndl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;opacity:0;transition:opacity .2s}.cv.has img.ndl{opacity:1}.cv.has{box-shadow:0 3px 6px var(--shadow)}
 .cv.img{background:var(--card);box-shadow:0 3px 6px var(--shadow)}.cv.img::after{display:none}.cv.img img{width:100%;height:100%;object-fit:contain;display:block}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
@@ -264,10 +266,14 @@ function cover(title,size){const h=hash(title),p=PAL[h%PAL.length];const t=nfkc(
   return `<div class="cv ${size} s${(h>>4)%4}" style="--a:${p[0]};--b:${p[1]};--c:${p[2]}" aria-hidden="true"><span>${esc(t.slice(0,size==="lg"?18:12))}</span></div>`;}
 // 本だなの表紙：国立国会図書館サーチの書影（ISBNで決まる画像。画面に入ったものから読む。無ければ仮の表紙のまま。10/4 Q006）
 function wIsbn(w){if(w._isb===undefined){const x=w.eds.map(e=>e.i).find(i=>isbn10(i));w._isb=x?isbn13(x):"";}return w._isb;}
-// 10/4：国会図書館の書影は他サイトからの埋め込みを受け付けない（403）ため止めた。出どころはQ007で決める
-const THUMB=null;
+// 本だなの表紙：Google ブックス（Q007 A・10/4）。国会図書館の書影は他サイトから埋め込めない（403）ため使わない
+// 条件：Powered by Google の表示、Google ブックスへのリンク。表紙のない本は灰色の画像（128x184 / 128x170）が返るので仮の表紙のまま
+const THUMB=i=>`https://books.google.com/books/content?vid=ISBN${i}&printsec=frontcover&img=1&zoom=1`;
+const GB_LOGO=`<a class="gb" href="https://books.google.com/" target="_blank" rel="noopener"><img src="https://books.google.com/googlebooks/images/poweredby.png" alt="Powered by Google" width="62" height="30"></a>`;
+function gbMark(img){const sec=img.closest(".shelf");const h=sec?sec.querySelector("h3"):document.querySelector("#status");
+  if(h&&!h.querySelector(".gb"))h.insertAdjacentHTML("beforeend",GB_LOGO);}
 function thumb(w,size){const c=cover(w.t,size),i=wIsbn(w);if(!i||!THUMB)return c;
-  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" src="https://ndlsearch.ndl.go.jp/thumbnail/${i}.jpg" onload="if(this.naturalWidth>20)this.parentNode.classList.add('has');else this.remove()" onerror="this.remove()"></div>`);}
+  return c.replace(/<\/div>$/,`<img class="ndl" loading="lazy" decoding="async" alt="" src="${THUMB(i)}" onload="if(this.naturalWidth<20||(this.naturalWidth===128&&(this.naturalHeight===184||this.naturalHeight===170)))this.remove();else{this.parentNode.classList.add('has');gbMark(this)}" onerror="this.remove()"></div>`);}
 
 let REPOF=new Map(),SERIESLIST=[],SEROF=new Map(),WORKS=[],BYWHO=new Map(),BYSER=new Map(),BYNT=new Map(),READY=false,SRC=[],MEMB=new Map(),BYKEY=new Map();
 let shown=40,stack=[],listScroll=0;
@@ -461,7 +467,7 @@ function show(i){
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
     ${nearHtml}
-    <details class="eds"><summary>この本の版（${w.eds.length}）</summary><ul>${eds}</ul></details>
+    <details class="eds"><summary>この本の版（${w.eds.length}）</summary><ul>${eds}</ul>${isb?`<p class="gbl"><a href="https://books.google.com/books?vid=ISBN${isbn13(isb)}" target="_blank" rel="noopener">Google ブックスでこの本を見る</a></p>`:""}</details>
   </div>`;
   heroCover(isb,w);
   window.scrollTo(0,0);
