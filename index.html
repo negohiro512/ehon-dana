@@ -389,21 +389,33 @@ const RK_ON=!!(RK.appId&&RK.accessKey);
 function isbn13(i){i=(i||"").replace(/[^0-9X]/g,"");if(i.length===13)return i;if(i.length!==10)return "";
   const b="978"+i.slice(0,9);let s=0;for(let k=0;k<12;k++)s+=(+b[k])*(k%2?3:1);return b+((10-s%10)%10);}
 let rkLast=0,rkQ=Promise.resolve();
-function rkCover(isbn){
-  const key="rk:"+isbn;
+function rkCover(isbn){return rkGet({isbn},"rk:"+isbn,it=>it[0]).then(x=>x?x.img:"");}
+// ISBNのない本：書名＋出版社で楽天を引き、書名と出版社が合うものだけ使う（10/4）
+const rkn=s=>nfkc(s).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：-]/g,"");
+function rkFind(w){const t=nfkc(w.t).split(/ : |:/)[0].trim(),p=np(w.p).replace(/[,，].*$/,"").replace(/\(.*?\)|（.*?）/g,"").replace(/^.*[:：]\s*/,"").trim();
+  if(!t||!p)return Promise.resolve(null);
+  return rkGet({title:t,publisherName:p,hits:"10"},"rkt:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))));}
+function rkGet(params,key,pick){
+  try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(c);}catch(e){}
   rkQ=rkQ.then(async()=>{
     const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));rkLast=Date.now();
-    const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,isbn,format:"json",formatVersion:"2"});
-    try{const j=await (await fetch(u)).json();const it=(j.Items||[])[0]||{};
-      const url=(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300");
-      try{sessionStorage.setItem(key,url);}catch(e){}return url;}catch(e){return "";}
+    const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",...params});
+    try{const j=await (await fetch(u)).json();const it=pick((j.Items||[]).map(x=>x.Item||x));
+      const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||""}:null;
+      try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){return null;}
   });return rkQ;
 }
-async function heroCover(isb){
-  if(!RK_ON||!isb)return;const i13=isbn13(isb);if(!i13)return;
-  const url=await rkCover(i13);const el=document.querySelector(".hero .cv");
-  if(!url||!el||el.dataset.isbn!==isb)return;
+async function heroCover(isb,w){
+  if(!RK_ON)return;const el0=document.querySelector(".hero .cv");const tag=el0&&el0.dataset.isbn;
+  let url="";
+  if(isb){const i13=isbn13(isb);if(!i13)return;url=await rkCover(i13);}
+  else{const r=await rkFind(w);if(!r||!r.isbn)return;url=r.img;
+    // 楽天で見つかったISBNで、図書館のボタンもつなぐ
+    const off=document.querySelector(".lib.off");
+    if(off&&document.querySelector(".hero .cv")===el0&&isbn10(r.isbn))off.outerHTML=`<a class="lib" href="https://calil.jp/book/${isbn10(r.isbn)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます（いまの版）</small></span></a>`;}
+  const el=document.querySelector(".hero .cv");
+  if(!url||!el||el!==el0||el.dataset.isbn!==tag)return;
   el.classList.add("img");el.innerHTML=`<img src="${esc(url)}" alt="表紙" referrerpolicy="no-referrer">`;
   el.insertAdjacentHTML("afterend",'<div class="credit">表紙：<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a></div>');
 }
@@ -433,12 +445,12 @@ function show(i){
     ${backBar()}
     <div class="hero"><div>${cover(w.t,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
-         :`<div class="lib off">${PIN}<span><b>図書館で直接は調べられません</b><small>この本は ISBN がないため。書名で図書館の検索にかけてください</small></span></div>`}
+         :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
     ${nearHtml}
     <details class="eds"><summary>この本の版（${w.eds.length}）</summary><ul>${eds}</ul></details>
   </div>`;
-  heroCover(isb);
+  heroCover(isb,w);
   window.scrollTo(0,0);
 }
 
