@@ -225,7 +225,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.15（10/5 13:15 楽天のNO IMAGEは使わない）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.16（10/5 15:10 原書・外国語版を別の本だなに）
   </footer>
 </div>
 
@@ -319,6 +319,34 @@ function aliasAuthors(){
   NAMEOF=d;
   for(const [id,c] of Object.entries(COLUMNS))COLBYWHO[ROOT(nw(c.who))]=id;}
 let NAMEOF=new Map();
+// ---- 原書・外国語版（The Very Hungry Caterpillar など）を日本語版とつなぐ（10/5）----
+// 原書：書名に日本語がなく、出版社が海外か「〜語版」と書かれているもの。
+// つなぎ方：①原書の副題にある日本語の書名（「The Mixed-Up Chameleon : ごちゃまぜカメレオン」）②日本語版の「= 原題」
+const JA=/[ぁ-んァ-ヶ一-龯]/;
+const ne=s=>nfkc(s).toLowerCase().replace(/[^a-z0-9]/g,"");
+function isOrig(w){if(JA.test(w.t)||!/[A-Za-z]{3}/.test(nfkc(w.t)))return false;
+  return !JA.test(nfkc(w.p))||w.eds.some(e=>/語版/.test(nfkc(e.t)));}
+let BYNE=new Map();
+function linkOriginals(){
+  const byNe=BYNE;
+  for(const w of WORKS){w.en=isOrig(w);w.orig=[];w.jaEd=[];
+    if(w.en){const k=ne(w.t);if(k.length>=3){if(!byNe.has(k))byNe.set(k,[]);byNe.get(k).push(w);}}}
+  const share=(a,b)=>[...a.cs.keys()].some(x=>b.cs.has(x));
+  const link=(ja,en)=>{if(ja===en||ja.en||!en.en||ja.orig.includes(en))return;ja.orig.push(en);en.jaEd.push(ja);};
+  for(const w of WORKS){
+    if(w.en){
+      for(const e of w.eds)for(const part of nfkc(e.t).split(/ : | = /).slice(1).filter(x=>JA.test(x))){
+        const t=part.replace(/[(（]?[^()（）\s]*語版[)）]?/g,"").replace(/[\[\]［］]/g,"").trim();
+        const c=(BYNT.get(nt(t))||[]).filter(x=>!x.en&&!x.bi&&!isForeign(x)),sh=c.filter(x=>share(x,w));
+        if(sh.length||c.length===1){(sh.length?sh:c).forEach(x=>link(x,w));continue;}
+        // 副題に読みや別の言葉がついているとき（「できるかな? あたまからつまさきまで」）：前のほうだけで、同じ作者の本をさがす
+        for(const v of [t.split(/\s{2,}/)[0],t.split(/[\s?？!！]/)[0]]){const c2=(BYNT.get(nt(v))||[]).filter(x=>!x.en&&!x.bi&&!isForeign(x)&&share(x,w));
+          if(nt(v).length>=3&&c2.length){c2.forEach(x=>link(x,w));break;}}}
+    }else{
+      for(const e of w.eds){const m=nfkc(e.t).split(/ = /)[1];if(!m)continue;
+        (byNe.get(ne(m.split(/ : /)[0]))||[]).filter(x=>share(x,w)).forEach(x=>link(w,x));}
+    }}
+}
 // 「加岳井, 広」→「加岳井 広」、「カール, エリック」→「エリック・カール」、「Carle, Eric」→「Eric Carle」
 function nice(c){if(!c)return "";const p=c.split(/,\s*/);if(p.length<2)return c;
   if(/^[A-Za-z]/.test(p[0]))return p[1]+" "+p[0];
@@ -344,7 +372,7 @@ function gbMark(img){const sec=img.closest(".shelf");const h=sec?sec.querySelect
   if(h&&!h.querySelector(".gb"))h.insertAdjacentHTML("beforeend",GB_LOGO);}
 // 表紙の候補：今の版（px）→ 新しい版から順。Google に表紙のない版は次の版で試す（最大4つ。10/5）
 function wIsbns(w){if(!w._isbs){const eds=w.eds.slice().sort((a,b)=>(b.yr||"").localeCompare(a.yr||""));
-  const sib=(BYNT.get(nt(w.t))||[]).filter(x=>x!==w&&!!x.bi===!!w.bi&&x.a&&x.a===w.a).flatMap(x=>[x.px,...x.eds.map(e=>e.i)]);
+  const sib=(w.en?(BYNE.get(ne(w.t))||[]):(BYNT.get(nt(w.t))||[])).filter(x=>x!==w&&!!x.bi===!!w.bi&&x.a&&x.a===w.a).flatMap(x=>[x.px,...x.eds.map(e=>e.i)]);
   const l=[w.px,...eds.map(e=>e.i),...sib].filter(x=>x&&isbn10(x)).map(isbn13);w._isbs=[...new Set(l)].slice(0,5);}return w._isbs;}
 function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
   if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
@@ -400,6 +428,7 @@ async function load(){
       for(const s of w.s){if(!BYSER.has(s))BYSER.set(s,[]);BYSER.get(s).push(w);}
       const k=nt(w.t);if(!BYNT.has(k))BYNT.set(k,[]);BYNT.get(k).push(w);
     });
+    linkOriginals();
     // 今の版のISBN（ISBNのない昔の本に、楽天で書名＋出版社が合ったものだけ。ISBNだけを残す・Q008）
     try{const P=await (await fetch("isbn_plus.json")).json();for(const k in P){const w=BYKEY.get(k);if(w)w.px=P[k];}}catch(e){}
     try{SRC=await (await fetch("lists.json")).json();
@@ -567,9 +596,10 @@ function show(i){
   const isb=w.eds.map(e=>e.i).find(x=>isbn10(x))||w.px||"";
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
   // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
-  const tiers={べつの版:[],つづき:[],作者:[],シリーズ:[]},seen=new Set([vk(w)]);
+  const tiers={べつの版:[],原書:[],つづき:[],作者:[],シリーズ:[]},seen=new Set([vk(w)]);
+  for(const x of (w.en?w.jaEd:w.orig)){seen.add(vk(x));tiers.原書.push(x);}
   for(const x of pairOf(w)){seen.add(vk(x));tiers.べつの版.push(x);}let serLabel="つづき";
-  const add=(x,t)=>{const k=vk(x);if(x===w){if(t==="つづき"&&!tiers[t].includes(x))tiers[t].push(x);return;}if(seen.has(k)||isForeign(x))return;seen.add(k);tiers[t].push(x);};
+  const add=(x,t)=>{const k=vk(x);if(x.en&&x!==w)return;if(x===w){if(t==="つづき"&&!tiers[t].includes(x))tiers[t].push(x);return;}if(seen.has(k)||isForeign(x))return;seen.add(k);tiers[t].push(x);};
   const ser=SEROF.get(w);
   if(ser){const rep=REPOF.get(w);ser.works.map(x=>x===rep?w:x).forEach(x=>add(x,"つづき"));serLabel=`つづき（${ser.name}・全${ser.works.length}冊）`;}
   (BYWHO.get(w.a)||[]).slice().sort((a,b)=>a.yr.localeCompare(b.yr)).slice(0,40).forEach(x=>add(x,"作者"));
@@ -578,12 +608,12 @@ function show(i){
     if(!serName)serName=s.split(/[.．]\s*/)[0];
     (BYSER.get(s)||[]).slice().sort((a,b)=>a.yr.localeCompare(b.yr)).slice(0,12).forEach(x=>add(x,"シリーズ"));
   }
-  const rows=[[w.bi?"日本語だけの版":"英語でもよめる版もあります",tiers.べつの版],[serLabel,tiers.つづき],[`おなじ作者（${authorName(w.a)}）`,tiers.作者],[`おなじシリーズ（${serName}）`,tiers.シリーズ]]
+  const rows=[[w.bi?"日本語だけの版":"英語でもよめる版もあります",tiers.べつの版],[w.en?"日本語版":"原書・外国語版",tiers.原書],[serLabel,tiers.つづき],[`おなじ作者（${authorName(w.a)}）`,tiers.作者],[`おなじシリーズ（${serName}）`,tiers.シリーズ]]
     .filter(([,l])=>l.some(x=>x!==w));
   const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
   const col=COLBYWHO[w.a];
   const eds=w.eds.slice().sort((a,b)=>(a.yr||"").localeCompare(b.yr||"")).map(e=>`<li>${e.yr||"不明"}<span>${esc(e.p)}${e.s?"　"+esc(e.s):""}</span></li>`).join("");
-  const facts=esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${esc(w.bi)}の版`:"");
+  const facts=(w.en?"原書・外国語版<br>":"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${esc(w.bi)}の版`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
     <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
@@ -604,7 +634,7 @@ function backBar(){const prev=stack[stack.length-2];
 // ---------- コラムのページ ----------
 function showCol(id){
   const c=COLUMNS[id];if(!c)throw new Error("no column");$("#searchBox").hidden=true;
-  const works=pairUp(withPairs(uniq((BYWHO.get(ROOT(nw(c.who)))||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),40)));
+  const works=pairUp(withPairs(uniq((BYWHO.get(ROOT(nw(c.who)))||[]).filter(x=>!isForeign(x)&&!x.en).sort((a,b)=>a.yr.localeCompare(b.yr)),40)));
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
     <article class="essay">
@@ -641,7 +671,11 @@ function showSrc(sid,secId){
 // ---------- 作者のページ ----------
 function showWho(c){
   $("#searchBox").hidden=true;
-  const all=pairUp(withPairs(uniq((BYWHO.get(c)||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),400)));
+  const every=pairUp(withPairs(uniq((BYWHO.get(c)||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),400)));
+  const all=every.filter(x=>!x.en);
+  // 原書・外国語版は、日本語の本とは別の本だなに（日本語版の書名を札に書く）
+  const origs=[...new Set([...every.filter(x=>x.en),...all.flatMap(x=>x.orig||[])])].sort((a,b)=>a.yr.localeCompare(b.yr));
+  const origHtml=origs.length?`<section class="shelf"><h3>原書・外国語版<small style="font:700 13px var(--round);color:var(--sub);margin-left:8px">${origs.length}冊</small></h3><p class="sub">日本語版がわかるものは、その書名を札に書いています</p><div class="board grid">${origs.map(x=>book(x,false,x.jaEd&&x.jaEd.length?"日本語版『"+x.jaEd[0].t+"』":"")).join("")}</div></section>`:"";
   const baseYr=x=>{if(!x.bi)return yr(x);const b=all.find(y=>!y.bi&&nt(y.t)===nt(x.t));return b?yr(b):yr(x);};
   const col=COLBYWHO[c];
   // 冊数が多い作者は、出た年代ごとの段に分ける
@@ -657,10 +691,11 @@ function showWho(c){
     <div style="display:flex;flex-direction:column;gap:6px">
       <div class="eyebrow">作者</div>
       <h2 style="font:700 28px/1.3 var(--round);margin:0">${esc(authorName(c))}</h2>
-      <p class="about">${all.length}冊${span?`。${span}`:""}。出た順に並べています</p>
+      <p class="about">${all.length}冊${span?`。${span}`:""}。出た順に並べています${origs.length?`（原書・外国語版${origs.length}冊は下の本だなに）`:""}</p>
     </div>
     ${col?colCard(col,false):""}
     ${body}
+    ${origHtml}
   </div>`;
   window.scrollTo(0,0);
 }
