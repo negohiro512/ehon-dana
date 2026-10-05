@@ -225,12 +225,14 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.11（10/5 10:00 英語でもよめる版を分ける・表紙をふやす）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.12（10/5 12:45 海外の作者名をカタカナに）
   </footer>
 </div>
 
 <script src="config.js"></script>
 <script>
+// 作者名の表記：海外の作者はカタカナに。データにカタカナ表記の版がない作者と、ペンネームで知られる作者はここで決める（10/5）
+const NAMEFIX={"加岳井, 広": "かがくいひろし", "Cousins, Lucy": "ルーシー・カズンズ", "Fabre, Jean-Henri": "ファーブル", "Genechten, Guido van": "ギド・ファン・ヘネヒテン", "Probst, Pierre": "ピエール・プロブスト", "Leblanc, Maurice": "モーリス・ルブラン", "Pfister, Marcus": "マーカス・フィスター", "Taplin, Sam": "サム・タプリン", "TISON,ANNETTE": "アネット・チゾン", "Duquennoy, Jacques": "ジャック・デュケノワ", "Wolde, Gunilla": "グニラ・ヴォルデ", "Stone, Kazuko G": "かずこ・G・ストーン", "Stone, Kazuko G.": "かずこ・G・ストーン", "Beatrix, Potter, 作": "ビアトリクス・ポター", "Potter, Beatrix": "ビアトリクス・ポター", "Gorey, Edward": "エドワード・ゴーリー", "Sharmat, Marjorie Weinman": "マージョリー・W・シャーマット", "Dahan, André": "アンドレ・ダーハン", "Arrhenius, Ingela P.": "インゲラ・P・アレニウス", "Vincent, Gabrielle": "ガブリエル・バンサン", "Campbell, Rod": "ロッド・キャンベル", "Eric, Carle": "エリック・カール", "Carle, Eric": "エリック・カール", "Moore, Clement Clarke": "クレメント・C・ムーア", "Barklem, Jill": "ジル・バークレム", "Christie, Agatha": "アガサ・クリスティー", "Awdry, Christopher": "クリストファー・オードリー", "Teckentrup, Britta": "ブリッタ・テッケントラップ", "Rodda, Emily": "エミリー・ロッダ", "Rinker, Sherri Duskey": "シェリー・ダスキー・リンカー", "Munari, Bruno": "ブルーノ・ムナーリ", "Langen, Annette": "アネッテ・ランゲン", "Battut, Éric": "エリック・バトゥー", "Chichester Clark, Emma": "エマ・チチェスター・クラーク", "Doyle, Arthur Conan, Sir": "コナン・ドイル", "Barnett, Mac": "マック・バーネット", "Davies, Benji": "ベンジー・デイヴィス", "Collodi, Carlo": "カルロ・コッローディ", "Child, Lauren": "ローレン・チャイルド", "Dick, Bruna": "ディック・ブルーナ", "Bruna, Dick": "ディック・ブルーナ", "Henkes, Kevin": "ケビン・ヘンクス", "Tullet, Hervé": "エルヴェ・テュレ", "Norac, Carl": "カール・ノラック", "Uttley, Alison": "アリソン・アトリー", "Asch, Frank": "フランク・アッシュ", "Holabird, Katharine": "キャサリン・ホラバード", "Waber, Bernard": "バーナード・ウェーバー", "Browne, Anthony": "アンソニー・ブラウン", "Waddell, Martin": "マーティン・ワッデル", "Stevenson, Robert Louis": "ロバート・ルイス・スティーヴンソン", "Kerr, Judith": "ジュディス・カー", "Bayley, Nicola": "ニコラ・ベイリー", "Sis, Peter": "ピーター・シス", "Barker, Cicely Mary": "シシリー・メアリー・バーカー", "Emberley, Ed": "エド・エンバリー", "Inkpen, Mick": "ミック・インクペン", "Reynolds, Peter Hamilton": "ピーター・H・レイノルズ", "Keene, Carolyn": "キャロリン・キーン", "Kunnas, Mauri": "マウリ・クンナス", "Schulz, Charles Monroe": "チャールズ・M・シュルツ", "Wildsmith, Brian": "ブライアン・ワイルドスミス", "Wettasinghe, Sybil": "シビル・ウェッタシンハ", "Hergé": "エルジェ", "Lionni, Leo": "レオ・レオニ", "Martin, Bill": "ビル・マーティン", "Milne, Alan Alexander": "A・A・ミルン", "DePaola, Tomie": "トミー・デ・パオラ", "Grejniec, Michael": "マイケル・グレイニエツ", "Watt, Fiona": "フィオナ・ワット", "Lodge, Jo": "ジョー・ロッジ", "Oram, Hiawyn": "ハイアワイン・オーラム", "Spafford, Suzy": "スージー・スパッフォード", "Aigner-Clark, Julie": "ジュリー・アイグナー＝クラーク", "Marék, Veronika": "マレーク・ベロニカ", "Cassinelli, Attilio": "アッティリオ・カッシネッリ", "H.A. Rey": "H・A・レイ", "Rey, Hans Augusto": "H・A・レイ", "Rey, Margret": "マーガレット・レイ", "Rey, H.A.": "H・A・レイ"};
 const EXCLUDE_PUB=/日本障害者リハビリテーション協会|ふきのとう文庫|さいたま市立中央図書館|石田製本/;
 // コラム。lead＝本のページに出す書き出し、body＝「つづきを読む」の先
 const COLUMNS={
@@ -269,8 +271,54 @@ const nw=c=>slashName(nfkc(who(c)),"").replace(/[\s,，・]/g,"");
 const np=p=>nfkc(p).replace(/^(株式会社|\(株\))|株式会社$/g,"").trim();
 const WHONAME=new Map();
 const authorName=a=>nice((WHONAME.get(a)||{name:a}).name);
-const COLBYWHO=Object.fromEntries(Object.entries(COLUMNS).map(([id,c])=>[nw(c.who),id]));
+const COLBYWHO={};let ROOT=a=>a;
 const sbase=s=>nfkc(s).split(/\s*;\s*/)[0].trim();
+// ---- 同じ人の「Carle, Eric」「カール, エリック」「エリック・カール」を1人にまとめ、カタカナで出す ----
+// 同じ本（書名＋出版社）の版で、ローマ字の作者とカタカナの作者が入れ替わっているものを対にする。
+// 名字の最初の音が合わないもの（訳者など）は外す。ただし8冊以上で一番多く対になるものは採る（イソップ）
+const KHEAD=[["カキクケコ","k"],["ガギグゲゴ","g"],["サスセソ","s"],["シ","sh"],["ザズゼゾ","z"],["ジヂ","j"],["タテト","t"],["チ","ch"],["ツ","ts"],["ダデドヅ","d"],
+  ["ナニヌネノ","n"],["ハヒヘホ","h"],["フ","f"],["バビブベボ","b"],["パピプペポ","p"],["マミムメモ","m"],["ヤユヨ","y"],["ラリルレロ","r"],["ワ","w"],["ヴ","v"],
+  ["ア","a"],["イ","i"],["ウ","u"],["エ","e"],["オヲ","o"]];
+const LHEAD={a:"a",e:"e i",i:"i a",o:"o",u:"u a",b:"b v",c:"k s ch sh ts",d:"d j",f:"f h",g:"g j h",h:"h f a i u e o",j:"j y h",k:"k",l:"r",m:"m",n:"n",
+  p:"p f",q:"k",r:"r",s:"s sh z ch t ts",t:"t ch ts s",v:"b v f w",w:"w u v b o",x:"s z k",y:"y i j",z:"z s ts j t ch"};
+function soundOk(lat,kat){
+  const lp=nfkc(lat).includes(",")?nfkc(lat).split(/,/)[0]:nfkc(lat).trim().split(/\s+/).pop();
+  const ls=lp.trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/^(van|von|de|du|la|le|di)\s+/,"");
+  const kf=nfkc(kat),ks=/,/.test(kf)?kf.split(/,/)[0].trim():kf.split(/[・=＝\s]/).filter(Boolean).pop()||"";
+  const head=k=>(KHEAD.find(([cs])=>cs.includes(k[0]))||[,""])[1],ok=(l,k)=>{const h=head(k);return !!h&&(LHEAD[l[0]]||"").split(" ").includes(h);};
+  if(!ls||!ks||!ok(ls,ks))return false;
+  // 名前もあれば、名前の最初の音も合わせる（H.A.レイとマーガレット・レイを分けるため）
+  const lg=(nfkc(lat).includes(",")?(nfkc(lat).split(/,/)[1]||""):(nfkc(lat).trim().split(/\s+/).length>1?nfkc(lat).trim().split(/\s+/)[0]:"")).trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+  const kg=/,/.test(kf)?(kf.split(/,/)[1]||"").trim():(kf.split(/[・=＝\s]/).filter(Boolean).length>1?kf.split(/[・=＝\s]/).filter(Boolean)[0]:"");
+  return !lg||!kg||ok(lg,kg);}
+function aliasAuthors(){
+  const isLat=a=>/^[A-Za-zÀ-ɏ]/.test(a),isKat=a=>/^[ァ-ヶー=＝]+$/.test(a);
+  const topForm=a=>{let b="",c=-1;for(const [x,k] of (WHONAME.get(a)||{forms:new Map()}).forms)if(k>c){c=k;b=x;}return b;};
+  const recs=a=>{let s=0;for(const k of (WHONAME.get(a)||{forms:new Map()}).forms.values())s+=k;return s;};
+  const par=new Map(),find=a=>{while(par.has(a)&&par.get(a)!==a)a=par.get(a);return a;},
+    uni=(a,b)=>{a=find(a);b=find(b);if(a===b)return;if(recs(a)<recs(b))[a,b]=[b,a];par.set(b,a);if(!par.has(a))par.set(a,a);};
+  const P=new Map();
+  for(const w of WORKS){const ks=[...w.cs.keys()],L=ks.filter(isLat),K=ks.filter(isKat);
+    for(const l of L)for(const k of K){if(!P.has(l))P.set(l,new Map());const q=P.get(l);q.set(k,(q.get(k)||0)+1);}}
+  for(const [l,q] of P){const best=[...q].sort((a,b)=>b[1]-a[1])[0];
+    for(const [k,c] of q)if(soundOk(topForm(l),topForm(k))||(c>=8&&k===best[0]))uni(l,k);}
+  const FIX=new Map(Object.entries(NAMEFIX).map(([k,v])=>[nw(k),v]));
+  const kanaName=f=>{f=nfkc(f).trim();if(/,/.test(f))return nice(f.replace(/\s*,\s*/,", "));return f.replace(/[=＝]/g,"・");};
+  const display=()=>{const g=new Map();for(const a of new Set([...par.keys(),...FIX.keys()].filter(a=>WHONAME.has(a)))){const r=find(a);if(!g.has(r))g.set(r,[]);g.get(r).push(a);}
+    const d=new Map();for(const [r,ms] of g){const fx=ms.map(a=>FIX.get(a)).find(Boolean);
+      if(fx){d.set(r,fx);continue;}
+      let best="",bs=-1;for(const a of ms)if(isKat(a))for(const [f,k] of WHONAME.get(a).forms){const sc=k-(/\s/.test(nfkc(f).replace(/,\s*/,","))?100:0);if(sc>bs){bs=sc;best=f;}}
+      if(best)d.set(r,kanaName(best));}
+    return d;};
+  // 決めた名前が同じ人（表記ちがいのカタカナの作者も）を、もう一度まとめる
+  let d=display();const byName=new Map();
+  for(const [r,n] of d){const k=nw(n);if(WHONAME.has(k))uni(r,k);if(byName.has(k))uni(r,byName.get(k));else byName.set(k,r);}
+  d=display();
+  ROOT=a=>par.has(a)?find(a):a;
+  for(const w of WORKS){if(![...w.cs.keys()].some(a=>par.has(a)))continue;const cs=new Map();for(const [a,k] of w.cs){const r=ROOT(a);cs.set(r,(cs.get(r)||0)+k);}w.cs=cs;}
+  NAMEOF=d;
+  for(const [id,c] of Object.entries(COLUMNS))COLBYWHO[ROOT(nw(c.who))]=id;}
+let NAMEOF=new Map();
 // 「加岳井, 広」→「加岳井 広」、「カール, エリック」→「エリック・カール」、「Carle, Eric」→「Eric Carle」
 function nice(c){if(!c)return "";const p=c.split(/,\s*/);if(p.length<2)return c;
   if(/^[A-Za-z]/.test(p[0]))return p[1]+" "+p[0];
@@ -341,8 +389,10 @@ async function load(){
       if(r.s)w.s.add(sbase(r.s));
     }
     WORKS=[...m.values()];
+    aliasAuthors();
     // 作者の表示名：「姓, 名」の形を優先し、いちばん多い書き方
     for(const n of WHONAME.values()){let best=[...n.forms.keys()][0]||"",bs=-Infinity;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=slashName(nfkc(best)," ").trim();delete n.forms;}
+    for(const [r,nm] of NAMEOF)WHONAME.get(r).name=nm;
     WORKS.forEach((w,i)=>{
       w.i=i;BYKEY.set(w.key,w);w.score=w.L*3+w.A.length*4+Math.min(w.eds.length,5);
       if(w.cs.size){w.a=[...w.cs].sort((x,y)=>y[1]-x[1])[0][0];w.c=WHONAME.get(w.a).name;}
@@ -544,7 +594,7 @@ function backBar(){const prev=stack[stack.length-2];
 // ---------- コラムのページ ----------
 function showCol(id){
   const c=COLUMNS[id];if(!c)throw new Error("no column");$("#searchBox").hidden=true;
-  const works=pairUp(withPairs(uniq((BYWHO.get(nw(c.who))||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),40)));
+  const works=pairUp(withPairs(uniq((BYWHO.get(ROOT(nw(c.who)))||[]).filter(x=>!isForeign(x)).sort((a,b)=>a.yr.localeCompare(b.yr)),40)));
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
     <article class="essay">
@@ -552,7 +602,7 @@ function showCol(id){
       <h2>${esc(c.title)}</h2>
       ${c.lead.concat(c.body).map(p=>`<p>${esc(p)}</p>`).join("")}
     </article>
-    ${shelf(`${authorName(nw(c.who))}さんの絵本`,"出た順。開くと、近くの図書館でさがせます",works)}
+    ${shelf(`${authorName(ROOT(nw(c.who)))}さんの絵本`,"出た順。開くと、近くの図書館でさがせます",works)}
     <details class="eds"><summary>このコラムの出典（${c.sources.length}）</summary><ul class="src">${c.sources.map(s=>`<li><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("")}</ul></details>
   </div>`;
   window.scrollTo(0,0);
