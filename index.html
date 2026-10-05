@@ -225,7 +225,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.12（10/5 12:45 海外の作者名をカタカナに）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.13（10/5 13:00 楽天の表紙のとりこぼしを直す）
   </footer>
 </div>
 
@@ -511,19 +511,26 @@ async function rkRun(){if(rkBusy)return;rkBusy=true;
     const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
     if(j.live&&!j.live()){j.res(null);continue;}rkLast=Date.now();j.res(await j.fn());}
   rkBusy=false;}
-function rkCover(isbn,pri=1,live){return rkGet({isbn},"rk2:"+isbn,it=>it[0],pri,live);}
+function rkCover(isbn,pri=1,live){return rkGet({isbn},"rk3:"+isbn,it=>it[0],pri,live);}
 // ISBNのない本：書名＋出版社で楽天を引き、書名と出版社が合うものだけ使う（10/4）
 const rkn=s=>nfkc(s).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：-]/g,"");
 function rkFind(w,pri=1,live){const t=nfkc(w.t).split(/ : |:/)[0].trim(),p=np(w.p).replace(/[,，].*$/,"").replace(/\(.*?\)|（.*?）/g,"").replace(/^.*[:：]\s*/,"").trim();
   if(!t||!p)return Promise.resolve(null);
-  return rkGet({title:t,publisherName:p,hits:"10"},"rkt2:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))),pri,live);}
+  return rkGet({title:t,publisherName:p,hits:"10"},"rkt3:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))),pri,live);}
 function rkGet(params,key,pick,pri=1,live){
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
   return new Promise(res=>{rkPend.push({pri,live,res,fn:async()=>{
     const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",...params});
-    try{const j=await (await fetch(u)).json();const it=pick((j.Items||[]).map(x=>x.Item||x));
-      const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
-      try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){return null;}
+    // 楽天の回数制限（サイト全体で1秒に1回）にかかった返事は「表紙なし」として覚えない。少し待って2回までやり直す（10/5 かがくいひろしの2冊で表紙が出なかった）
+    for(let t=0;t<3;t++){
+      if(t){await new Promise(r=>setTimeout(r,1500*t));if(live&&!live())return null;}
+      rkLast=Date.now();
+      try{const j=await (await fetch(u)).json();
+        if(!Array.isArray(j.Items))continue;
+        const it=pick(j.Items.map(x=>x.Item||x));
+        const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
+        try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){}}
+    return null;
   }});rkPend.sort((a,b)=>b.pri-a.pri);rkRun();});
 }
 // ISBNのない本（昔の版）：画面に入ったら、楽天を書名＋出版社で引いて表紙を出す（10/5 エリック・カールのページで表紙が少なかった）
