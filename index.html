@@ -36,7 +36,8 @@ button{font:inherit;color:inherit}
 .app{max-width:520px;margin:0 auto;padding-block:20px 48px;display:flex;flex-direction:column;gap:22px}
 
 /* ---------- 見出し ---------- */
-.brand{display:flex;align-items:flex-end;gap:14px}
+.brand{display:flex;align-items:flex-end;gap:14px;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.brand:active{opacity:.7}
 .spines{display:flex;align-items:flex-end;gap:3px;padding-bottom:5px;border-bottom:5px solid var(--wood);flex:none}
 .spines i{display:block;width:9px;border-radius:2px 2px 0 0}
 .spines i:nth-child(1){height:30px;background:#ef8f72}
@@ -106,6 +107,8 @@ h1{font:900 30px/1 var(--round);letter-spacing:.02em;margin:0}
 .book .cv{transition:translate .15s}
 
 /* ---------- 本のページ ---------- */
+.barbtn{width:42px;height:42px;border-radius:50%;border:1.5px solid var(--line);background:var(--card);display:inline-flex;align-items:center;justify-content:center;cursor:pointer;padding:0}
+.barbtn svg{width:20px;height:20px;stroke:var(--ink);fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:8px;display:flex;align-items:center;gap:8px}
 .back{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px 8px 12px;font-weight:500;font-size:15px;cursor:pointer}
 .back::before{content:"";width:8px;height:8px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;rotate:45deg;margin-left:4px}
@@ -195,7 +198,7 @@ footer a{color:inherit}
 </style>
 
 <div class="app">
-  <header class="brand">
+  <header class="brand" id="home" role="link" tabindex="0" aria-label="絵本だな（はじめの画面へ）">
     <div class="spines" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
     <div>
       <h1>絵本だな</h1>
@@ -225,7 +228,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.16（10/5 15:10 原書・外国語版を別の本だなに）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.17（10/6 ロゴではじめの画面へ・さっき見た本）
   </footer>
 </div>
 
@@ -500,7 +503,9 @@ function render(){
     const used=new Set(top.map(w=>nt(w.t)));
     const prize=uniq(WORKS.filter(w=>w.A.length&&!used.has(nt(w.t))).sort((a,b)=>b.A.length-a.A.length||b.score-a.score),16);
     $("#status").textContent=`${WORKS.length.toLocaleString()}作品から探せます。書名のはじめを入れるか、下の本を開いてみてください。`;
+    const recent=recentWorks();
     $("#view").innerHTML=`<div class="page">
+      ${recent.length?shelf("さっき見た本","この端末で開いた本。新しい順",recent):""}
       ${shelf("図書館がよくすすめている本","全国の図書館・自治体の選書リストに載っている数の順",top)}
       ${colCard("kagakui",false)}
       ${shelf("絵本の賞に選ばれた本","ようちえん絵本大賞・日本絵本賞・MOE絵本屋さん大賞など",prize)}
@@ -590,8 +595,15 @@ async function heroCover(isb,w){
   const lib=document.querySelector(".page .lib");
   if(r.url&&lib&&!document.querySelector(".buy"))lib.insertAdjacentHTML("afterend",`<a class="buy" href="${esc(r.url)}" target="_blank" rel="noopener">手元に置きたくなったら<b>楽天ブックスで買う</b></a>`);
 }
+// さっき見た本：この端末にだけ覚える（書名＋出版社の鍵で12冊まで。覚えられない端末では出さない。10/6）
+function recentWorks(){try{return (JSON.parse(localStorage.getItem("ehon_recent")||"[]")).map(k=>BYKEY.get(k)).filter(Boolean);}catch(e){return [];}}
+function rememberWork(w){try{const l=[w.key,...(JSON.parse(localStorage.getItem("ehon_recent")||"[]")).filter(k=>k!==w.key)].slice(0,12);localStorage.setItem("ehon_recent",JSON.stringify(l));}catch(e){}}
+// はじめの画面へ：書名の入力を消し、履歴に「はじめの画面」を積む（戻るで元の画面に戻れる）
+function goHome(focus){$("#q").value="";shown=40;
+  if(stack.length){stack=[];try{history.pushState({stack:[],d:(H().d||0)+1},"",urlOf([]));}catch(e){}}
+  go(undefined);window.scrollTo(0,0);if(focus)setTimeout(()=>$("#q").focus(),50);}
 function show(i){
-  const w=WORKS[i];if(!w)throw new Error("no work");
+  const w=WORKS[i];if(!w)throw new Error("no work");rememberWork(w);
   $("#searchBox").hidden=true;
   // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5 Hiro）
   const isb=w.px||w.eds.map(e=>e.i).find(x=>isbn10(x))||"";
@@ -630,7 +642,9 @@ function show(i){
 
 function backBar(){const prev=stack[stack.length-2];
   const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":"まえの本へ";
-  return `<div class="bar"><button class="back" id="back" type="button">${label}</button></div>`;}
+  return `<div class="bar"><button class="back" id="back" type="button">${label}</button><span style="flex:1"></span>
+    <button class="barbtn" id="tosearch" type="button" aria-label="書名でさがす"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
+    <button class="barbtn" id="tohome" type="button" aria-label="はじめの画面へ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/></svg></button></div>`;}
 
 // ---------- コラムのページ ----------
 function showCol(id){
@@ -716,6 +730,8 @@ document.addEventListener("click",e=>{
     const key=b.dataset.who?"a"+b.dataset.who:b.dataset.col?"c"+b.dataset.col:b.dataset.src?"s"+b.dataset.src+"#"+(b.dataset.sec||""):"b"+b.dataset.i;
     nav(key);return;}
   if(e.target.closest("#back")){goBack();return;}
+  if(e.target.closest("#home,#tohome")){goHome(false);return;}
+  if(e.target.closest("#tosearch")){goHome(true);return;}
   if(e.target.closest("#more")){shown+=40;render();return;}
   const c=e.target.closest(".chip");
   if(c){$("#q").value=c.textContent;shown=40;render();return;}
@@ -745,6 +761,7 @@ function startFromUrl(){
   const h=(()=>{try{return decodeURIComponent(location.hash.slice(1));}catch(e){return "";}})();
   if(/^[bacs]./.test(h)){stack=[h];try{history.replaceState({stack:stack.slice(),d:0},"");}catch(e){}go(h);}
   else{try{history.replaceState({stack:[],d:0},"",urlOf([]));}catch(e){}}}
+$("#home").addEventListener("keydown",e=>{if(e.key==="Enter"){goHome(false);}});
 let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;tm=setTimeout(render,120);});
 if(RK_ON){const n=document.getElementById("coverNote");if(n)n.innerHTML='表紙は本を開いたときに<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a>から読み込みます（<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Developers</a>）。';}
 render();load();
