@@ -593,7 +593,8 @@ async function heroCover(isb,w){
 function show(i){
   const w=WORKS[i];if(!w)throw new Error("no work");
   $("#searchBox").hidden=true;
-  const isb=w.eds.map(e=>e.i).find(x=>isbn10(x))||w.px||"";
+  // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5 Hiro）
+  const isb=w.px||w.eds.map(e=>e.i).find(x=>isbn10(x))||"";
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
   // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
   const tiers={べつの版:[],原書:[],つづき:[],作者:[],シリーズ:[]},seen=new Set([vk(w)]);
