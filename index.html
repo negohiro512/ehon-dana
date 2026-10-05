@@ -25,7 +25,11 @@
   --wood:#8d6641; --wood-edge:#6b4a2b; --shadow:rgba(0,0,0,.35); color-scheme:dark}
 
 html,body{min-height:100%}
-body{background:var(--paper);color:var(--ink);font:500 16px/1.7 var(--round);padding-inline:16px;padding-block:0;-webkit-text-size-adjust:100%}
+body{background:var(--paper);color:var(--ink);font:500 16px/1.7 var(--round);padding-inline:16px;padding-block:0;-webkit-text-size-adjust:100%;
+  /* かなの字間を詰め（palt）、日本語は文節で折り返す（10/5 デザイン見直し） */
+  font-feature-settings:"palt";word-break:auto-phrase;text-wrap:pretty}
+/* 長く読む文章は詰めない */
+.essay p,.col p,.about{font-feature-settings:normal}
 button{font:inherit;color:inherit}
 [hidden]{display:none!important}
 :focus-visible{outline:3px solid var(--sun);outline-offset:2px;border-radius:8px}
@@ -39,7 +43,7 @@ button{font:inherit;color:inherit}
 .spines i:nth-child(2){height:24px;background:#6fb1d8}
 .spines i:nth-child(3){height:34px;background:#f2b93b}
 .spines i:nth-child(4){height:27px;background:#86c06e;transform:rotate(9deg);transform-origin:bottom left;margin-left:2px}
-h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
+h1{font:900 30px/1 var(--round);letter-spacing:.02em;margin:0}
 .lead{margin:6px 0 0;font-size:14px;color:var(--sub);line-height:1.5}
 
 /* ---------- 検索 ---------- */
@@ -54,7 +58,7 @@ h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
 #clear{position:absolute;right:8px;top:50%;translate:0 -50%;width:36px;height:36px;border-radius:50%;border:none;background:var(--leaf-soft);color:var(--ink);font-size:18px;line-height:1;cursor:pointer}
 .chips{display:flex;gap:8px;overflow-x:auto;padding-block:2px 4px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap}
+.chip{flex:none;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:6px 14px;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap}
 .chip:hover{border-color:var(--leaf)}
 .note{font-size:13px;color:var(--sub);min-height:1.5em;margin:0}
 
@@ -81,20 +85,20 @@ h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
 .row .m{font-size:13px;color:var(--sub);line-height:1.5;margin-top:2px;overflow-wrap:anywhere}
 .row .go{width:10px;height:10px;border-right:2.5px solid var(--sub);border-top:2.5px solid var(--sub);rotate:45deg;margin-right:4px}
 .tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:6px}
-.tag{font-size:12px;font-weight:700;line-height:1.4;padding:2px 9px;border-radius:999px;background:var(--leaf-soft);color:var(--ink)}
+.tag{font-size:12px;font-weight:500;line-height:1.45;padding:3px 10px;border-radius:10px;text-align:left;background:var(--leaf-soft);color:var(--ink)}
 .tag.prize{background:var(--sun-soft)}
 .tag.prize::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--sun);margin-right:5px;vertical-align:1px;box-shadow:0 0 0 1.5px var(--sun-ink) inset}
-.more{align-self:center;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:10px 22px;font-weight:700;cursor:pointer}
+.more{align-self:center;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:10px 22px;font-weight:500;cursor:pointer}
 .empty{background:var(--card);border:1.5px dashed var(--line);border-radius:16px;padding:20px;text-align:center;color:var(--sub);font-size:14px}
 
 /* ---------- 本だな（木の棚板に表紙を立てる） ---------- */
-.shelf h3{font:900 18px/1.4 var(--round);margin:0 0 2px;text-wrap:balance}
+.shelf h3{font:700 18px/1.4 var(--round);margin:0 0 2px;text-wrap:balance;display:flex;align-items:center;flex-wrap:wrap;column-gap:8px}
 .shelf .sub{font-size:13px;color:var(--sub);margin:0}
 .board{--cvh:122.67px;display:flex;gap:16px;overflow-x:auto;scroll-snap-type:x proximity;padding:14px 4px 6px;margin-inline:-4px;
   background:linear-gradient(to bottom,transparent calc(14px + var(--cvh)),var(--wood) calc(14px + var(--cvh)),var(--wood) calc(24px + var(--cvh)),var(--wood-edge) calc(24px + var(--cvh)),var(--wood-edge) calc(27px + var(--cvh)),transparent calc(27px + var(--cvh)));
   background-attachment:local;scrollbar-width:thin}
 .book{flex:0 0 92px;scroll-snap-align:start;background:none;border:none;padding:0;text-align:left;cursor:pointer;display:flex;flex-direction:column}
-.book .n{margin-top:20px;font-size:13px;font-weight:700;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.book .n{margin-top:20px;font-size:13px;font-weight:500;line-height:1.4;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;text-wrap:balance}
 .book .y{font-size:12px;color:var(--sub);font-variant-numeric:tabular-nums}
 .book.now .cv{outline:3px solid var(--sun);outline-offset:3px}
 .book.now .n::before{content:"いま見ている本";display:block;font-size:11px;color:var(--sub);font-weight:700}
@@ -103,12 +107,12 @@ h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
 
 /* ---------- 本のページ ---------- */
 .bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--paper);padding-block:8px;display:flex;align-items:center;gap:8px}
-.back{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px 8px 12px;font-weight:700;font-size:15px;cursor:pointer}
+.back{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px 8px 12px;font-weight:500;font-size:15px;cursor:pointer}
 .back::before{content:"";width:8px;height:8px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;rotate:45deg;margin-left:4px}
 .page{display:flex;flex-direction:column;gap:26px}
 .hero{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:end}
 .hero .txt{min-width:0}
-.hero h2{font:900 24px/1.35 var(--round);margin:0;text-wrap:balance;overflow-wrap:anywhere}
+.hero h2{font:700 24px/1.35 var(--round);margin:0;text-wrap:balance;overflow-wrap:anywhere}
 .hero .who{margin:8px 0 0;font-size:15px;font-weight:700}
 .wholink{border:none;background:none;padding:0;cursor:pointer;font:inherit;font-weight:700;color:var(--ink);text-align:left;text-decoration:underline;text-decoration-color:var(--leaf);text-decoration-thickness:2px;text-underline-offset:4px}
 .wholink span{font-size:12px;color:var(--sub);text-decoration:none;display:inline-block;margin-left:6px;font-weight:700}
@@ -118,39 +122,40 @@ h1{font:900 30px/1 var(--round);letter-spacing:.06em;margin:0}
 @media (max-width:380px){.hero{grid-template-columns:1fr;justify-items:start}}
 .lib{display:flex;align-items:center;gap:14px;background:var(--leaf);color:var(--leaf-ink);border-radius:18px;padding:16px 18px;text-decoration:none;box-shadow:0 3px 0 var(--wood-edge)}
 .lib svg{flex:none;width:34px;height:34px;stroke:currentColor;fill:none;stroke-width:2;stroke-linejoin:round;stroke-linecap:round}
-.lib b{display:block;font:900 19px/1.3 var(--round)}
+.lib b{display:block;font:700 19px/1.3 var(--round)}
 .lib small{display:block;font-size:13px;line-height:1.5;opacity:.92}
 .lib.off{background:var(--card);color:var(--sub);border:1.5px dashed var(--line);box-shadow:none}
 .lib.off b{color:var(--ink);font-size:17px}
 /* コラム：黄色い便箋。見出しだけ手書き風 */
-.eyebrow{font:700 12px var(--round);letter-spacing:.12em;color:var(--sub)}
+.eyebrow{font:700 12px var(--round);letter-spacing:.08em;color:var(--sub)}
 .col{background:var(--sun-soft);border-radius:4px 18px 18px 18px;padding:18px 20px 16px;display:flex;flex-direction:column;gap:8px}
 .col h3{font:600 21px/1.45 var(--hand);margin:0;text-wrap:balance}
 .col p{margin:0;font-size:15px;line-height:1.9}
-.read{align-self:flex-start;margin-top:4px;border:none;background:var(--card);color:var(--ink);border-radius:999px;padding:9px 18px 9px 20px;font-weight:700;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 2px 0 var(--shadow)}
+.read{align-self:flex-start;margin-top:4px;border:none;background:var(--card);color:var(--ink);border-radius:999px;padding:9px 18px 9px 20px;font-weight:500;font-size:15px;cursor:pointer;display:inline-flex;align-items:center;gap:10px;box-shadow:0 2px 0 var(--shadow)}
 .read::after{content:"";width:7px;height:7px;border-right:2.5px solid currentColor;border-top:2.5px solid currentColor;rotate:45deg}
 .essay{display:flex;flex-direction:column;gap:16px;max-width:34em}
 .essay h2{font:600 27px/1.45 var(--hand);margin:0 0 4px;text-wrap:balance}
 .essay p{margin:0;font-size:17px;line-height:2.05}
 .essay p:last-child{font-weight:700}
-.book .why{margin-top:20px;align-self:flex-start;font-size:11px;font-weight:700;line-height:1.5;padding:0 8px;border-radius:999px;background:var(--leaf-soft);color:var(--ink)}
+.book .why{margin-top:20px;align-self:flex-start;font-size:11px;font-weight:500;line-height:1.5;padding:0 8px;border-radius:999px;background:var(--leaf-soft);color:var(--ink)}
 .book .why+.n{margin-top:4px}
 /* 段のある本だな（リストのページ）：本の高さをそろえて、段ごとに棚板を引く */
 .board.grid{--rowh:226px;display:grid;grid-template-columns:repeat(auto-fill,92px);grid-auto-rows:var(--rowh);justify-content:space-between;gap:14px 12px;overflow:visible;padding:14px 0 0;margin:0;
   background:repeating-linear-gradient(to bottom,transparent 0 calc(14px + var(--cvh)),var(--wood) calc(14px + var(--cvh)) calc(24px + var(--cvh)),var(--wood-edge) calc(24px + var(--cvh)) calc(27px + var(--cvh)),transparent calc(27px + var(--cvh)) calc(var(--rowh) + 14px))}
 .book.ghost{cursor:default;opacity:.55}
 .near{display:flex;flex-direction:column;gap:10px}
-.near .tier h4{margin:0;font:700 14px/1.5 var(--round);color:var(--sub)}
+.near .tier h4{margin:0;font:500 14px/1.5 var(--round);color:var(--sub)}
 .near .tier+.tier{margin-top:6px}
 .book.ghost:hover .cv{translate:none}
 /* 賞・図書館のタグ（押せる） */
-.tags button.tag{border:none;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;gap:6px}
+.tags button.tag{border:none;cursor:pointer;font-family:inherit;display:inline-flex;align-items:center;justify-content:flex-start;text-align:left;gap:6px}
+.tag.prize::before,.tags button.tag::after{flex:none}
 .tags button.tag::after{content:"";width:5px;height:5px;border-right:2px solid currentColor;border-top:2px solid currentColor;rotate:45deg;opacity:.6}
 .tags button.tag:hover{outline:2px solid var(--leaf);outline-offset:0}
 .srcs{display:flex;flex-direction:column;gap:14px}
-.srcs h3{font:900 18px/1.4 var(--round);margin:0}
+.srcs h3{font:700 18px/1.4 var(--round);margin:0}
 .srcs .grp{display:flex;flex-direction:column;gap:8px}
-.srcs .grp>span{font-size:13px;color:var(--sub);font-weight:700}
+.srcs .grp>span{font-size:13px;color:var(--sub);font-weight:500}
 .srcs .chips{flex-wrap:wrap;overflow:visible}
 .about{margin:0;font-size:15px;color:var(--sub);line-height:1.8}
 .ext{color:var(--ink);font-size:14px;font-weight:700}
@@ -167,12 +172,18 @@ details.eds ul{margin:6px 0 0;padding:0;list-style:none;font-size:13px;color:var
 details.eds li{display:grid;grid-template-columns:3.6em 1fr;gap:8px}
 details.eds li span{min-width:0;overflow-wrap:anywhere}
 
-.gb{display:inline-block;margin-left:10px;vertical-align:middle;line-height:0;background:#fff;border-radius:4px;padding:2px 5px}.gb img{height:15px;width:auto}
+.gb{display:inline-block;margin-left:10px;vertical-align:middle;line-height:0;background:#fff;border-radius:3px;padding:1px 3px}.gb img{height:14px;width:auto}
+.shelf h3 .gb{margin-left:auto}
 .gbl{font-size:13px;margin:8px 0 0}.gbl a{color:var(--sub)}
-.cv img.ndl{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;opacity:0;transition:opacity .2s}.cv.has img.ndl{opacity:1}.cv.has{box-shadow:0 3px 6px var(--shadow)}
-.cv.img{background:var(--card);box-shadow:0 3px 6px var(--shadow)}.cv.img::after{display:none}.cv.img img{width:100%;height:100%;object-fit:contain;display:block}
+/* 本物の表紙は切り取らず、元の縦横比のまま棚板に下揃えで立てる（背の高さがそろわないのが本だならしさ。10/5） */
+.cv img.ndl,.cv.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;object-position:50% 100%;z-index:2;filter:drop-shadow(0 3px 4px var(--shadow))}
+.cv img.ndl{opacity:0;transition:opacity .2s}.cv.has img.ndl{opacity:1}
+.cv.has,.cv.img{background:none;box-shadow:none}.cv.has::after,.cv.has span{display:none}
+.book.now .cv.has,.book.now .cv.img{outline:none}
+.book.now .cv.has img{filter:drop-shadow(3px 0 0 var(--sun)) drop-shadow(-3px 0 0 var(--sun)) drop-shadow(0 3px 0 var(--sun)) drop-shadow(0 -3px 0 var(--sun))}
+.cv.img::after{display:none}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
-.cv.img a{display:block;width:100%;height:100%}
+.cv.img a{display:block;position:absolute;inset:0}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
 footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
 footer a{color:inherit}
@@ -210,7 +221,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.8（10/5 1:00）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.9（10/5 9:30 見た目の調整）
   </footer>
 </div>
 
@@ -527,7 +538,7 @@ function showSrc(sid,secId){
     ${backBar()}
     <div style="display:flex;flex-direction:column;gap:8px">
       <div class="eyebrow">${s.kind==="award"?"絵本の賞":"図書館・自治体のおすすめ"}</div>
-      <h2 style="font:900 26px/1.35 var(--round);margin:0;text-wrap:balance">${esc(s.name)}</h2>
+      <h2 style="font:700 26px/1.35 var(--round);margin:0;text-wrap:balance">${esc(s.name)}</h2>
       <p class="about">${esc(s.about)}。${s.kind==="award"?`${s.secs.length}回ぶん、${n}冊。新しい回が上です。`:`${n}冊。`}</p>
       <a class="ext" href="${s.url}" target="_blank" rel="noopener">${s.kind==="award"?"賞の公式ページ":"リストの元のページ"}を見る</a>
     </div>
@@ -554,7 +565,7 @@ function showWho(c){
     ${backBar()}
     <div style="display:flex;flex-direction:column;gap:6px">
       <div class="eyebrow">作者</div>
-      <h2 style="font:900 28px/1.3 var(--round);margin:0">${esc(authorName(c))}</h2>
+      <h2 style="font:700 28px/1.3 var(--round);margin:0">${esc(authorName(c))}</h2>
       <p class="about">${all.length}冊${span?`。${span}`:""}。出た順に並べています</p>
     </div>
     ${col?colCard(col,false):""}
