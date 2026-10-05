@@ -192,6 +192,10 @@ details.eds li span{min-width:0;overflow-wrap:anywhere}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
 .cv.img a{display:block;position:absolute;inset:0}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
+/* コラムの中の書名：押すと本のページへ */
+.tl{border:none;background:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:var(--leaf);text-decoration-thickness:2px;text-underline-offset:4px;display:inline}
+.tl:hover{color:var(--leaf)}
+.tlw{white-space:nowrap}
 footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
 footer a{color:inherit}
 @media (prefers-reduced-motion:reduce){.book .cv{transition:none}.book:hover .cv{translate:none}}
@@ -228,7 +232,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.18（10/6 かがくいひろしのコラム第2稿）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.19（10/6 コラムの書名から本のページへ）
   </footer>
 </div>
 
@@ -474,9 +478,13 @@ function srcChips(){const g=k=>SRC.filter(s=>s.kind===k).map(s=>`<button class="
   return SRC.length?`<section class="srcs"><h3>リストからさがす</h3>
     <div class="grp"><span>絵本の賞</span><div class="chips">${g("award")}</div></div>
     <div class="grp"><span>図書館・自治体のおすすめ</span><div class="chips">${g("lib")}</div></div></section>`:"";}
+// コラムの中の『書名』を押すと、その本のページへ（作者の本を優先。英語版・原書・外国語版は選ばない。10/6）
+function colWork(t,c){const a=ROOT(nw(c.who)),ws=(BYNT.get(nt(t))||[]).filter(x=>!x.en&&!x.bi&&!isForeign(x));
+  const mine=ws.filter(x=>x.cs.has(a));return (mine.length?mine:ws).slice().sort((x,y)=>(!!wIsbns(y).length-!!wIsbns(x).length)||y.score-x.score)[0];}
+const colText=(p,c)=>esc(p).replace(/『([^』]+)』/g,(m,t)=>{const w=colWork(t,c);return w?`<span class="${t.length<=14?"tlw":""}">『<button type="button" class="tl" data-i="${w.i}">${t}</button>』</span>`:m;});
 function colCard(id,withLead){const c=COLUMNS[id];
   return `<article class="col"><div class="eyebrow">コラム${c.draft?"・下書き":""}</div><h3>${esc(c.title)}</h3>
-    ${(withLead?c.lead:[c.lead[0]]).map(p=>`<p>${esc(p)}</p>`).join("")}
+    ${(withLead?c.lead:[c.lead[0]]).map(p=>`<p>${colText(p,c)}</p>`).join("")}
     <button class="read" type="button" data-col="${id}">つづきを読む</button></article>`;}
 
 // 同じ書名は1冊だけ（作者の書き方が版で違うと別の作品になるため）
@@ -651,7 +659,7 @@ function showCol(id){
     <article class="essay">
       <div class="eyebrow">コラム${c.draft?"・下書き":""}</div>
       <h2>${esc(c.title)}</h2>
-      ${c.lead.concat(c.body).map(p=>`<p>${esc(p)}</p>`).join("")}
+      ${c.lead.concat(c.body).map(p=>`<p>${colText(p,c)}</p>`).join("")}
     </article>
     ${shelf(`${authorName(ROOT(nw(c.who)))}さんの絵本`,"出た順。開くと、近くの図書館でさがせます",works)}
     <details class="eds"><summary>このコラムの出典（${c.sources.length}）</summary><ul class="src">${c.sources.map(s=>`<li><a href="${s[1]}" target="_blank" rel="noopener">${esc(s[0])}</a></li>`).join("")}</ul></details>
