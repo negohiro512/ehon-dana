@@ -225,7 +225,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.14（10/5 13:10 品切れの本の表紙も楽天から）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.15（10/5 13:15 楽天のNO IMAGEは使わない）
   </footer>
 </div>
 
@@ -511,12 +511,12 @@ async function rkRun(){if(rkBusy)return;rkBusy=true;
     const wait=rkLast+1100-Date.now();if(wait>0)await new Promise(r=>setTimeout(r,wait));
     if(j.live&&!j.live()){j.res(null);continue;}rkLast=Date.now();j.res(await j.fn());}
   rkBusy=false;}
-function rkCover(isbn,pri=1,live){return rkGet({isbn},"rk4:"+isbn,it=>it[0],pri,live);}
+function rkCover(isbn,pri=1,live){return rkGet({isbn},"rk5:"+isbn,it=>it[0],pri,live);}
 // ISBNのない本：書名＋出版社で楽天を引き、書名と出版社が合うものだけ使う（10/4）
 const rkn=s=>nfkc(s).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：-]/g,"");
 function rkFind(w,pri=1,live){const t=nfkc(w.t).split(/ : |:/)[0].trim(),p=np(w.p).replace(/[,，].*$/,"").replace(/\(.*?\)|（.*?）/g,"").replace(/^.*[:：]\s*/,"").trim();
   if(!t||!p)return Promise.resolve(null);
-  return rkGet({title:t,publisherName:p,hits:"10"},"rkt4:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))),pri,live);}
+  return rkGet({title:t,publisherName:p,hits:"10"},"rkt5:"+t+"|"+p,its=>its.find(it=>rkn(it.title)===rkn(t)&&rkn(it.publisherName||"").includes(rkn(p).slice(0,3))),pri,live);}
 function rkGet(params,key,pick,pri=1,live){
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
   return new Promise(res=>{rkPend.push({pri,live,res,fn:async()=>{
@@ -529,7 +529,9 @@ function rkGet(params,key,pick,pri=1,live){
       try{const j=await (await fetch(u)).json();
         if(!Array.isArray(j.Items))continue;
         const it=pick(j.Items.map(x=>x.Item||x));
-        const r=it?{img:(it.largeImageUrl||it.mediumImageUrl||"").replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
+        // 楽天の「NO IMAGE 画像はありません」の絵は表紙として使わない（仮の表紙のほうがよい。10/5 Hiro）
+        const im=it?(it.largeImageUrl||it.mediumImageUrl||""):"",noimg=/noimage|no_image|now_?printing|\.gif(\?|$)/i.test(im);
+        const r=it?{img:noimg?"":im.replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
         try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){}}
     return null;
   }});rkPend.sort((a,b)=>b.pri-a.pri);rkRun();});
