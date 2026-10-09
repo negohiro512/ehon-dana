@@ -1,0 +1,27 @@
+# 毎週月曜の朝（日本時間 6:13）に点検する。取り違えのISBNは cover_fix.json に足してコミットする
+name: weekly-audit
+on:
+  schedule:
+    - cron: "13 21 * * 0"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --no-save playwright@1.47.2 && npx playwright install --with-deps chromium
+      - run: |
+          python3 -m http.server 8765 >/dev/null 2>&1 &
+          sleep 2
+          node tools/audit.mjs
+      - name: commit
+        run: |
+          git config user.name "ehon-audit"
+          git config user.email "actions@users.noreply.github.com"
+          git add audit cover_fix.json
+          git diff --cached --quiet || (git commit -m "点検：$(date +%Y-%m-%d)" && git push)

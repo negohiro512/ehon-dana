@@ -253,7 +253,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.30（10/9 点検の仕組み）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.31（10/9 点検で見つけたISBNの取り違えを外す）
   </footer>
 </div>
 
@@ -433,7 +433,8 @@ function enTitle(w){
 const tidy=t=>t.replace(/\s*\[(ハード|ソフト)カバー\]\s*$/,"").replace(/^\(付録CD\)\s*/,"");
 const ttl=w=>{if(w._dt===undefined)w._dt=tidy(w.bi==="英語版"?(enTitle(w)||w.t):w.t);return w._dt;};
 // 表紙の手直し：データにISBNがない原書などに、表紙に使うISBNを決めておく（作品の鍵 → ISBN）
-const COVER_FIX={"GOODNIGHTMOONおやすみなさいおつきさま|Harper & Row,Publishers":"9780064430173"};
+// cover_fix.json で読みこむ（fix：作品の鍵→ISBN、bad：使わないISBN）
+let COVER_FIX={},BADISBN=new Set();
 const SPLITOF=new Map();
 function splitWorks(){const out=[];
   // キャラクターの版に分けた側は、賞・リストの印を引きつがない（印は書名＋出版社で付いているので、ふつうの絵本のほうのもの）
@@ -508,7 +509,7 @@ function wIsbns(w){if(!w._isbs){const eds=edsByUse(w);
   // セットの番号は、ほかに候補がないときだけ（Googleにふつうの版の表紙がないと、セットの箱の表紙が出ていた。10/9 おててがでたよ）
   // セットの番号しかない本は、ISBNなしとして書名で楽天を引く（くつくつあるけ）。日本の本に外国の版（978-604…）の表紙を使わない
   // 別の出版社の同じ書名の本は、訳や版がちがい表紙もちがう（ラボ教育センターの英語つき Goodnight Moon）。日本語の本では使わない（10/9）
-  const l=[COVER_FIX[w.key],w.px,...eds.map(e=>e.i),...(w.en?sib:[])].filter(x=>x&&isbn10(x)).map(isbn13).filter(x=>!SETISBN.has(x)&&(w.en||x.startsWith("9784")));
+  const l=[COVER_FIX[w.key],w.px,...eds.map(e=>e.i),...(w.en?sib:[])].filter(x=>x&&isbn10(x)).map(isbn13).filter(x=>!SETISBN.has(x)&&!BADISBN.has(x)&&(w.en||x.startsWith("9784")));
   w._isbs=[...new Set(l)].slice(0,5);}return w._isbs;}
 function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
   if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
@@ -557,6 +558,7 @@ async function load(){
     }
     WORKS=[...m.values()];
     aliasAuthors();
+    try{const F=await (await fetch("cover_fix.json")).json();COVER_FIX=F.fix||{};BADISBN=new Set(F.bad||[]);}catch(e){}
     WORKS=splitWorks();
     // 英語版は、賞・リストの印を引きつがない（印は書名＋出版社で付いていて、日本語版のもの。10/9 おつきさまこんばんは）
     for(const w of WORKS)if(w.bi==="英語版"){w.L=0;w.A=[];}
@@ -575,7 +577,7 @@ async function load(){
     });
     linkOriginals();
     // 今の版のISBN（ISBNのない昔の本に、楽天で書名＋出版社が合ったものだけ。ISBNだけを残す・Q008）
-    try{const P=await (await fetch("isbn_plus.json")).json();for(const k in P){const w=BYKEY.get(k);if(w)w.px=P[k];}}catch(e){}
+    try{const P=await (await fetch("isbn_plus.json")).json();for(const k in P){const w=BYKEY.get(k);if(w&&!BADISBN.has(isbn13(P[k])))w.px=P[k];}}catch(e){}
     try{SRC=await (await fetch("lists.json")).json();
       for(const s of SRC)for(const sec of s.secs)for(const it of sec.items){if(!it[1])continue;
         if(!MEMB.has(it[1]))MEMB.set(it[1],[]);MEMB.get(it[1]).push({s,sec,note:it[2]});}
@@ -721,10 +723,18 @@ async function runAudit(o={}){
       try{const j=await (await fetch("https://api.openbd.jp/v1/get",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"isbn="+part.join(",")})).json();
         j.forEach((d,i)=>{if(d)T.set(part[i],nfkc(d.summary.title||""));});}catch(e){R.openbdError=String(e);}}
     R.openbdHit=T.size;
-    for(const [w,i] of pairs){const ob=T.get(i);if(!ob)continue;const a=nt(ob),b=nt(w.t);
-      if(/セット|全\d+巻/.test(ob)&&!/セット/.test(w.t))add("表紙のISBNがセット商品",ttl(w)+"｜"+ob+"｜"+i);
-      else if(/英語版|= [A-Za-z]/.test(ob)&&!w.bi)add("表紙のISBNが英語の版",ttl(w)+"｜"+ob+"｜"+i);
-      else if(!(a.startsWith(b)||b.startsWith(a)||a.includes(b)))add("表紙のISBNの書名がちがう",ttl(w)+"｜"+ob+"｜"+i);}}
+    // 書名の照らし方：句読点や空白を外して、片方がもう片方を含めば同じ本。巻の番号がある本（シリーズの巻）は照らさない
+    const flat=x=>nfkc(x).replace(/[\s　・,，、。.!！?？「」『』()（）\[\]〜~ー～:：=＝-]/g,"");
+    const bg=x=>{x=flat(x).replace(/[0-9]/g,"");const S=new Set();for(let k=0;k<x.length-1;k++)S.add(x.slice(k,k+2));return S;};
+    const sim=(x,y)=>{const p=flat(x),q=flat(y);if(p&&q&&(p.includes(q)||q.includes(p)))return 1;const A=bg(x),B=bg(y);if(!A.size||!B.size)return 0;let c=0;for(const z of A)if(B.has(z))c++;return c/Math.min(A.size,B.size);};
+    const VOL=/(\. ?\[?\d+\]?$|\s\d+$|\d+(巻|集)|\[\d+\]|^\d)/;
+    R.badIsbn=[];
+    for(const [w,i] of pairs){const ob=T.get(i);if(!ob)continue;const obm=ob.split(/ : | = /)[0];
+      if(/セット|全\d+巻/.test(ob)&&!/セット/.test(w.t)){add("表紙のISBNがセット商品",ttl(w)+"｜"+ob+"｜"+i);R.badIsbn.push(i);continue;}
+      if(/英語版/.test(ob)&&!w.bi){add("表紙のISBNが英語版",ttl(w)+"｜"+ob+"｜"+i);R.badIsbn.push(i);continue;}
+      if(VOL.test(nfkc(w.t))||VOL.test(obm))continue;
+      const ref=[w.t,...w.eds.map(e=>e.t),...w.eds.map(e=>e.s||"")].join(" ");
+      if(Math.max(sim(ob,w.t),sim(obm,ref)*0.9)<0.3){add("表紙のISBNの書名がちがう",ttl(w)+"｜"+ob+"｜"+i);R.badIsbn.push(i);}}}
   return R;}
 
 function render(){
