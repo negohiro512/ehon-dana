@@ -195,6 +195,10 @@ details.eds li span{min-width:0;overflow-wrap:anywhere}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
 .cv.img a{display:block;position:absolute;inset:0}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
+/* 本のページの表紙：読みこめたら、枠を表紙の形にあわせて上に詰める（正方形の表紙で上があいていた。10/9） */
+.hero .cv.img,.hero .cv.has{aspect-ratio:auto}
+.hero .cv.img a{position:static}
+.hero .cv.img img,.hero .cv.has img.ndl{position:static;display:block;width:100%;height:auto}
 /* コラムの中の書名：押すと本のページへ */
 .tl{border:none;background:none;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline;text-decoration-color:var(--leaf);text-decoration-thickness:2px;text-underline-offset:4px;display:inline}
 .tl:hover{color:var(--leaf)}
@@ -249,7 +253,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.25（10/9 本のページの表紙と書名の上をそろえる）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.26（10/9 本のページの表紙を上に詰める）
   </footer>
 </div>
 
