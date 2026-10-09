@@ -253,7 +253,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.32（10/9 楽天で今買えるキャラクターの本を戻す）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.33（10/9 外国語の版を索引から外す）
   </footer>
 </div>
 
@@ -280,7 +280,11 @@ const FORMAT_SERIES=/ボードブック|ビッグブック|大型|大きな|ペ�
 const BI=/英語でも(よ|読)める|えいごでもよめる|バイリンガル|英語つき|日英|英日|対訳|英語版/;
 function biOf(t){const p=nfkc(t).split(/ : | = /);if(p.length<2)return "";const r=p.slice(1).join(" ");return BI.test(r)?(/英語つき/.test(r)?"英語つき":/英語版/.test(r)?"英語版":"英語でもよめる"):"";}
 const vk=w=>nt(w.t)+(w.bi?"|en":"");
-const isForeign=w=>/案内番号|[가-힣]/.test(w.t)||/中国|北京|上海|连环画|台湾/.test(w.p)||(!/[ぁ-んァ-ヶ]/.test(w.t)&&/出版社$/.test(w.p));
+// 外国語の版（中国語・韓国語・台湾など）。かながなく、中国・韓国・台湾・東南アジアのISBNか簡体字の書名なら外国語の版（10/9 小达摩在）
+const FOREIGN_ISBN=/^978(7|89|957|986|604|616|602|979)/;
+const SIMP=/[达们这个说为门马鸟龙书东车长发对时过还没爱绘馆儿园乐]/;
+const isForeign=w=>{if(w._fo!==undefined)return w._fo;const kana=/[ぁ-んァ-ヶ]/.test(w.t);
+  return w._fo=/案内番号|[가-힣]/.test(w.t)||/中国|北京|上海|连环画|台湾/.test(w.p)||(!kana&&(/出版社$/.test(w.p)||SIMP.test(w.t)||w.eds.some(e=>FOREIGN_ISBN.test(isbn13(e.i)))));};
 
 const $=s=>document.querySelector(s);
 const nfkc=s=>(s||"").normalize("NFKC");
@@ -560,6 +564,8 @@ async function load(){
     aliasAuthors();
     try{const F=await (await fetch("cover_fix.json")).json();COVER_FIX=F.fix||{};BADISBN=new Set(F.bad||[]);}catch(e){}
     WORKS=splitWorks();
+    // 外国語の版は索引に入れない（9/27 決めたこと。英語の原書は原書の本だなに残す）
+    WORKS=WORKS.filter(w=>!isForeign(w));
     // 英語版は、賞・リストの印を引きつがない（印は書名＋出版社で付いていて、日本語版のもの。10/9 おつきさまこんばんは）
     for(const w of WORKS)if(w.bi==="英語版"){w.L=0;w.A=[];}
     // キャラクターもの（テレビ・映画・おもちゃ発）は、いま書店で買える本（openBDに載っている本）だけ残す。賞・リストに載っている本は残す（10/9）
