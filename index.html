@@ -253,7 +253,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.29（10/9 別の出版社の表紙を使わない・シリーズの見直し）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.30（10/9 点検の仕組み）
   </footer>
 </div>
 
@@ -403,7 +403,7 @@ function cleanSeries(){
   SERIESLIST=SERIESLIST.filter(s=>{if(s.works.length>=2)return true;for(const w of s.works)if(SEROF.get(w)===s)SEROF.delete(w);return false;});}
 function autoSeries(){
   const G=new Map(),fixed=w=>SEROF.has(w)&&SEROF.get(w).confirmed;
-  for(const w of WORKS){if(fixed(w)||!w.a||w.en||w.bi||isForeign(w))continue;const k=w.a+"|"+np(w.p);if(!G.has(k))G.set(k,[]);G.get(k).push(w);}
+  for(const w of WORKS){if(fixed(w)||/^[A-Za-z「『\[［(（]/.test(nfkc(w.t))||!w.a||w.en||w.bi||isForeign(w))continue;const k=w.a+"|"+np(w.p);if(!G.has(k))G.set(k,[]);G.get(k).push(w);}
   for(const ws of G.values()){if(ws.length<3)continue;
     const P=new Map();
     for(const w of ws){const t=nt(w.t);for(let L=4;L<=Math.min(t.length,30);L++){const p=t.slice(0,L);if(!P.has(p))P.set(p,new Set());P.get(p).add(w);}}
@@ -429,7 +429,11 @@ function enTitle(w){
     const sub=t.split(/ : /).slice(1).join(" ").replace(/\(?英語版\)?/,"").trim();if(/^[A-Za-z][^ぁ-んァ-ヶ一-龯]*$/.test(sub)&&/[A-Za-z]{3}/.test(sub))return sub;
     const lead=t.match(/^[A-Za-z][A-Za-z0-9 ,.'’!?&-]{2,}(?=\s*[ぁ-んァ-ヶ一-龯])/);if(lead)return lead[0].trim();}
   return "";}
-const ttl=w=>{if(w.bi!=="英語版")return w.t;if(w._dt===undefined)w._dt=enTitle(w);return w._dt||w.t;};
+// 書名の表記をととのえる：「[ハードカバー]」「(付録CD)」は書名に出さない（10/9 点検）
+const tidy=t=>t.replace(/\s*\[(ハード|ソフト)カバー\]\s*$/,"").replace(/^\(付録CD\)\s*/,"");
+const ttl=w=>{if(w._dt===undefined)w._dt=tidy(w.bi==="英語版"?(enTitle(w)||w.t):w.t);return w._dt;};
+// 表紙の手直し：データにISBNがない原書などに、表紙に使うISBNを決めておく（作品の鍵 → ISBN）
+const COVER_FIX={"GOODNIGHTMOONおやすみなさいおつきさま|Harper & Row,Publishers":"9780064430173"};
 const SPLITOF=new Map();
 function splitWorks(){const out=[];
   // キャラクターの版に分けた側は、賞・リストの印を引きつがない（印は書名＋出版社で付いているので、ふつうの絵本のほうのもの）
@@ -497,12 +501,14 @@ const SETISBN=new Set();
 const SPECIAL_ED=/セット|てんじ|点字|さわる|ミニえほん|ミニ版|ミニブック|大型|ビッグ|ボードブック|普及版|特製版/;
 const edRank=e=>(SETISBN.has(isbn13(e.i))?2:0)+(SPECIAL_ED.test(nfkc((e.s||"")+" "+e.t))?1:0);
 const edsByUse=w=>w.eds.filter(e=>isbn10(e.i)).sort((a,b)=>edRank(a)-edRank(b)||(b.yr||"").localeCompare(a.yr||""));
+// 本のページの表紙・図書館も、本だなと同じISBN（ちがうISBNを選んでいた本があった。10/9 点検）
+function heroIsbn(w){return wIsbns(w)[0]||"";}
 function wIsbns(w){if(!w._isbs){const eds=edsByUse(w);
   const sib=(w.en?(BYNE.get(ne(w.t))||[]):(BYNT.get(nt(w.t))||[])).filter(x=>x!==w&&!!x.bi===!!w.bi&&x.a&&x.a===w.a&&(w.en||!isForeign(x)&&!x.en)).flatMap(x=>[x.px,...x.eds.map(e=>e.i)]);
   // セットの番号は、ほかに候補がないときだけ（Googleにふつうの版の表紙がないと、セットの箱の表紙が出ていた。10/9 おててがでたよ）
   // セットの番号しかない本は、ISBNなしとして書名で楽天を引く（くつくつあるけ）。日本の本に外国の版（978-604…）の表紙を使わない
   // 別の出版社の同じ書名の本は、訳や版がちがい表紙もちがう（ラボ教育センターの英語つき Goodnight Moon）。日本語の本では使わない（10/9）
-  const l=[w.px,...eds.map(e=>e.i),...(w.en?sib:[])].filter(x=>x&&isbn10(x)).map(isbn13).filter(x=>!SETISBN.has(x)&&(w.en||x.startsWith("9784")));
+  const l=[COVER_FIX[w.key],w.px,...eds.map(e=>e.i),...(w.en?sib:[])].filter(x=>x&&isbn10(x)).map(isbn13).filter(x=>!SETISBN.has(x)&&(w.en||x.startsWith("9784")));
   w._isbs=[...new Set(l)].slice(0,5);}return w._isbs;}
 function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
   if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
@@ -685,6 +691,42 @@ function showTheme(id){
   </div>`;
   window.scrollTo(0,0);}
 
+// ---------- 点検（10/9）：これまでに見つかった問題を、ルールにして全体を調べる ----------
+// ブラウザのコンソールで  await runAudit()  。openBD（出版社の書誌データ）で、表紙に使うISBNの書名が本の書名と合うかも調べる
+async function runAudit(o={}){
+  const R={at:new Date().toISOString(),version:(document.querySelector("footer").textContent.match(/v\d+\.\d+/)||[""])[0],n:{},ex:{}};
+  const add=(k,v)=>{R.n[k]=(R.n[k]||0)+1;(R.ex[k]=R.ex[k]||[]).length<(o.max||40)&&R.ex[k].push(v);};
+  const themeSet=new Set(THEMES.flatMap(t=>t.works));
+  const scope=WORKS.filter(w=>!w.en&&!isForeign(w)&&(w.L||w.A.length||SEROF.has(w)||themeSet.has(w)||o.all));
+  R.scope=scope.length;
+  const JA=/[ぁ-んァ-ヶ一-龯]/;
+  for(const w of scope){const t=ttl(w),lab=t+"｜"+w.p;
+    if(/\[(ハード|ソフト)カバー\]|^\(付録CD\)/.test(t))add("書名に余分な表記",lab);
+    if(w.bi==="英語版"&&JA.test(t))add("英語版なのに書名が日本語",lab);
+    if(!w.bi&&w.eds.some(e=>/英語版|英語でも(よ|読)める|バイリンガル/.test(nfkc(e.t))))add("日本語の本に英語の版が混ざる",lab);
+    if(w.c&&/^[A-Za-z]/.test(authorName(w.a))&&JA.test(w.t))add("作者名がローマ字のまま",authorName(w.a)+"｜"+lab);
+    const ch=w.eds.filter(isCharEd).length;if(ch&&ch<w.eds.length)add("キャラクターの版とふつうの版が混ざる",lab);
+    const i=wIsbns(w)[0],h=heroIsbn(w)&&isbn13(heroIsbn(w));
+    if(i&&h&&i!==h)add("本だなと本のページで表紙のISBNがちがう",lab+"｜"+i+"/"+h);
+    if(i&&SETISBN.has(i))add("表紙にセットの番号",lab+"｜"+i);
+    if(i&&!i.startsWith("9784")&&!COVER_FIX[w.key])add("表紙に外国の版",lab+"｜"+i);}
+  // シリーズ：作者のちがう本・原書・出版社がばらばら
+  for(const s of SERIESLIST){const as=new Set(s.works.map(w=>w.a).filter(Boolean)),ps=new Set(s.works.map(w=>np(w.p)));
+    if(s.works.some(w=>/^[A-Za-z『「]/.test(nfkc(w.t))))add("シリーズに原書・本についての本",s.name);
+    if(!s.confirmed&&as.size>2)add("（要確認）シリーズの作者が3人以上",s.name+"（"+s.works.length+"冊）");}
+  // openBDで書名を照らす（表紙に使うISBN）
+  if(o.openbd!==false){const pairs=scope.map(w=>[w,wIsbns(w)[0]]).filter(([,i])=>i&&i.startsWith("978"));
+    const T=new Map();
+    for(let k=0;k<pairs.length;k+=1000){const part=pairs.slice(k,k+1000).map(x=>x[1]);
+      try{const j=await (await fetch("https://api.openbd.jp/v1/get",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:"isbn="+part.join(",")})).json();
+        j.forEach((d,i)=>{if(d)T.set(part[i],nfkc(d.summary.title||""));});}catch(e){R.openbdError=String(e);}}
+    R.openbdHit=T.size;
+    for(const [w,i] of pairs){const ob=T.get(i);if(!ob)continue;const a=nt(ob),b=nt(w.t);
+      if(/セット|全\d+巻/.test(ob)&&!/セット/.test(w.t))add("表紙のISBNがセット商品",ttl(w)+"｜"+ob+"｜"+i);
+      else if(/英語版|= [A-Za-z]/.test(ob)&&!w.bi)add("表紙のISBNが英語の版",ttl(w)+"｜"+ob+"｜"+i);
+      else if(!(a.startsWith(b)||b.startsWith(a)||a.includes(b)))add("表紙のISBNの書名がちがう",ttl(w)+"｜"+ob+"｜"+i);}}
+  return R;}
+
 function render(){
   const q=$("#q").value.trim();$("#clear").hidden=!q;
   if(!READY)return;
@@ -798,7 +840,7 @@ function show(i){
   $("#searchBox").hidden=true;
   // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5 Hiro）
   // 本だなの表紙と同じ順（今の版 → 新しい版から）で選ぶ。本だなと本のページで表紙がちがわないように（10/9）
-  const isb=w.px||(edsByUse(w).find(e=>!SETISBN.has(isbn13(e.i)))||{}).i||"";
+  const isb=heroIsbn(w);
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
   // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
   const tiers={べつの版:[],原書:[],つづき:[],作者:[],シリーズ:[]},seen=new Set([vk(w)]);
