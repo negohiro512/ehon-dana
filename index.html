@@ -195,6 +195,8 @@ details.eds li span{min-width:0;overflow-wrap:anywhere}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
 .cv.img a{display:block;position:absolute;inset:0}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
+.ad{display:inline-block;font-size:10px;line-height:1;padding:3px 5px;margin-left:6px;border:1px solid var(--line);border-radius:4px;color:var(--sub);vertical-align:1px;font-weight:400}
+footer details{margin-top:8px}footer summary{cursor:pointer;color:var(--ink,inherit)}footer details p{margin:6px 0}
 /* 本のページの表紙：読みこめたら、枠を表紙の形にあわせて上に詰める（正方形の表紙で上があいていた。10/9） */
 .hero .cv.img,.hero .cv.has{aspect-ratio:auto}
 .hero .cv.img a{position:static}
@@ -252,9 +254,16 @@ footer a{color:inherit}
   <main id="view" aria-live="polite"></main>
 
   <footer>
-    約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
+    約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.36（10/10 新刊を毎週自動で追加）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.37（10/10 楽天アフィリエイトの準備・新刊の書誌を openBD に）
+    <details id="about"><summary>このサイトについて・プライバシー</summary>
+      <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
+      <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
+      <p>表紙を出すときは Google ブックスや楽天ブックスに、図書館をさがすときはカーリルに、その本のISBNや書名が送られます。それぞれのサービスの決まりにしたがって扱われます。</p>
+      <p id="adNote" hidden>このサイトは楽天アフィリエイトに参加しています。「広告」と書いた楽天ブックスへのリンクから本が買われると、運営者に紹介料が入ります（値段は変わりません）。リンクを押すと、楽天がクッキーを使って記録します。</p>
+      <p>お問い合わせ先は準備中です。</p>
+    </details>
   </footer>
 </div>
 
@@ -838,7 +847,8 @@ function rkGet(params,key,pick,pri=1,live){
   try{const c=sessionStorage.getItem(key);if(c!==null)return Promise.resolve(JSON.parse(c));}catch(e){}
   return new Promise(res=>{rkPend.push({pri,live,res,fn:async()=>{
     // outOfStockFlag=1：品切れ・販売終了の本も返してもらう（表紙だけでも出したい。既定の0だと出てこない。10/5 ふしぎなでまえ）
-    const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",outOfStockFlag:"1",...params});
+    // 楽天アフィリエイト（10/10）：config.js に affiliateId があれば、楽天ブックスへのリンクをアフィリエイトのリンクにする（楽天の規約で、このアプリで認められている収入は楽天アフィリエイトだけ）
+    const u="https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?"+new URLSearchParams({applicationId:RK.appId,accessKey:RK.accessKey,format:"json",formatVersion:"2",outOfStockFlag:"1",...(RK.affiliateId?{affiliateId:RK.affiliateId}:{}),...params});
     // 楽天の回数制限（サイト全体で1秒に1回）にかかった返事は「表紙なし」として覚えない。少し待って2回までやり直す（10/5 かがくいひろしの2冊で表紙が出なかった）
     for(let t=0;t<3;t++){
       if(t){await new Promise(r=>setTimeout(r,1500*t));if(live&&!live())return null;}
@@ -848,7 +858,7 @@ function rkGet(params,key,pick,pri=1,live){
         const it=pick(j.Items.map(x=>x.Item||x));
         // 楽天の「NO IMAGE 画像はありません」の絵は表紙として使わない（仮の表紙のほうがよい。10/5 Hiro）
         const im=it?(it.largeImageUrl||it.mediumImageUrl||""):"",noimg=/noimage|no_image|now_?printing|\.gif(\?|$)/i.test(im);
-        const r=it?{img:noimg?"":im.replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
+        const r=it?{img:noimg?"":im.replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/hb\.afl\.rakuten\.co\.jp\//.test(it.affiliateUrl||"")?it.affiliateUrl:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
         try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){}}
     return null;
   }});rkPend.sort((a,b)=>b.pri-a.pri);rkRun();});
@@ -873,10 +883,12 @@ async function heroCover(isb,w){
   if(!r||!r.img||!el||el!==el0||el.dataset.isbn!==tag)return;
   const shop=r.url||"https://books.rakuten.co.jp/";
   el.classList.add("img");el.innerHTML=`<a href="${esc(shop)}" target="_blank" rel="noopener" aria-label="楽天ブックスでこの本を見る"><img src="${esc(r.img)}" alt="表紙" referrerpolicy="no-referrer"></a>`;
-  el.insertAdjacentHTML("afterend",`<div class="credit">表紙：<a href="${esc(shop)}" target="_blank" rel="noopener">楽天ブックス</a></div>`);
+  // アフィリエイトのリンクには「広告」と書く（景品表示法のステマ規制）
+  const ad=/^https:\/\/hb\.afl\.rakuten\.co\.jp\//.test(shop)?`<span class="ad">広告</span>`:"";
+  el.insertAdjacentHTML("afterend",`<div class="credit">表紙：<a href="${esc(shop)}" target="_blank" rel="noopener sponsored">楽天ブックス</a>${ad}</div>`);
   // 図書館のボタンの下に、目立たない「買う」ボタン（図書館が先。10/4 Hiro）
   const lib=document.querySelector(".page .lib");
-  if(r.url&&lib&&!document.querySelector(".buy"))lib.insertAdjacentHTML("afterend",`<a class="buy" href="${esc(r.url)}" target="_blank" rel="noopener">手元に置きたくなったら<b>楽天ブックスで買う</b></a>`);
+  if(r.url&&lib&&!document.querySelector(".buy"))lib.insertAdjacentHTML("afterend",`<a class="buy" href="${esc(r.url)}" target="_blank" rel="noopener sponsored">手元に置きたくなったら<b>楽天ブックスで買う</b>${ad}</a>`);
 }
 // さっき見た本：この端末にだけ覚える（書名＋出版社の鍵で12冊まで。覚えられない端末では出さない。10/6）
 function recentWorks(){try{return (JSON.parse(localStorage.getItem("ehon_recent")||"[]")).map(k=>BYKEY.get(k)).filter(Boolean);}catch(e){return [];}}
@@ -1053,6 +1065,7 @@ function startFromUrl(){
   else{try{history.replaceState({stack:[],d:0},"",urlOf([]));}catch(e){}}}
 $("#home").addEventListener("keydown",e=>{if(e.key==="Enter"){goHome(false);}});
 let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;tm=setTimeout(render,120);});
+if(RK_ON&&RK.affiliateId){const a=document.getElementById("adNote");if(a)a.hidden=false;}
 if(RK_ON){const n=document.getElementById("coverNote");if(n)n.innerHTML='表紙は本を開いたときに<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a>から読み込みます（<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Developers</a>）。';}
 render();load();
 </script>

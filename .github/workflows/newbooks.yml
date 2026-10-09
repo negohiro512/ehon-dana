@@ -1,5 +1,5 @@
-# 毎週月曜の朝（日本時間 5:43。点検の前）に、楽天ブックスから新刊を足して new.json をコミットする
-# 楽天のIDは Settings → Secrets and variables → Actions の RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY（無いときは何もしない）
+# 毎週月曜の朝（日本時間 5:43。点検の前）に、楽天ブックスで新刊を見つけ、openBD の書誌で new.json をつくりなおしてコミットする
+# 楽天のIDは Settings → Secrets and variables → Actions の RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY（無いときは新刊さがしを休み、openBD での確かめだけする）
 name: weekly-newbooks
 on:
   schedule:
@@ -23,5 +23,5 @@ jobs:
         run: |
           git config user.name "ehon-newbooks"
           git config user.email "actions@users.noreply.github.com"
-          git add new.json
+          git add new.json isbn_plus.json
           git diff --cached --quiet || (git commit -m "新刊：$(date +%Y-%m-%d)" && git push)

@@ -1,8 +1,13 @@
-// 毎週の新刊さがし：楽天ブックスの「絵本」「しかけ絵本」ジャンルを発売日の新しい順に引き、new.json に足す。
+// 毎週の新刊さがし（10/10 つくり直し）
+//   1. 楽天ブックスの「絵本」「しかけ絵本」ジャンルを発売日の新しい順に引き、「新しく出る本のISBN」だけを手元（メモリ）で使う
+//   2. 書名・作者・出版社・発売日などは openBD（出版社が出している書誌。本の紹介に無料で使える）から取り、new.json に保存する
+//      openBD に無い本は載せない
+// 楽天ウェブサービス規約 第10条1項(9)「不特定または多数の人と共有できる場所に、ウェブサービスで得た情報を保管しない」ため、
+// 楽天から得た書名・日付などは保存しない（公開リポジトリに置かない）。
+// あわせて isbn_plus.json（昔の本の今の版のISBN）も、openBD で書名が合うものだけ残す。
 // 楽天のIDは GitHub の Secrets（RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY）から読む。ここには書かない。
 // 楽天の新しいAPIは、登録したWebサイトからの呼び出ししか受けないので、Origin・Referer にそのサイトを入れる（RAKUTEN_SITE）。
-// 保存するのは書名・読み・作者・出版社・ISBN・叢書・発売日だけ（楽天のURL・表紙は保存しない）。
-// 使い方：リポジトリの直下で  node tools/newbooks.mjs        （ためし：--dry で new.json を書かない／--mock=ファイル で楽天を呼ばない）
+// 使い方：リポジトリの直下で  node tools/newbooks.mjs   （ためし：--dry で書きこまない／--mock=ファイル で楽天・openBD を呼ばない）
 import fs from "fs";
 import zlib from "zlib";
 
@@ -11,7 +16,8 @@ const DRY = ARG.includes("--dry");
 const MOCK = (ARG.find(a => a.startsWith("--mock=")) || "").slice(7);
 const APP = process.env.RAKUTEN_APP_ID || "", KEY = process.env.RAKUTEN_ACCESS_KEY || "";
 const SITE = (process.env.RAKUTEN_SITE || "https://negohiro512.github.io").replace(/\/$/, "");
-if (!MOCK && (!APP || !KEY)) { console.log("RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY が Secrets にないので、新刊さがしは休みます"); process.exit(0); }
+const NO_RK = !MOCK && (!APP || !KEY);
+if (NO_RK) console.log("RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY が Secrets にないので、新刊さがしは休み、いまある本の openBD での確かめだけします");
 
 const GENRES = ["001003003", "001003005"]; // 絵本・しかけ絵本
 const BACK_DAYS = 45, AHEAD_DAYS = 100, MAX_PAGES = 40;
@@ -37,7 +43,7 @@ const INDEX = new Set(recs.map(r => isbn13(r.i)).filter(Boolean));
 
 const N = fs.existsSync("new.json") ? JSON.parse(fs.readFileSync("new.json", "utf8")) : { records: [], dates: {} };
 N.records = N.records || []; N.dates = N.dates || {};
-const HAVE = new Set(N.records.map(r => isbn13(r.i)));
+const MOCKD = MOCK ? JSON.parse(fs.readFileSync(MOCK, "utf8")) : null;
 
 const jst = new Date(Date.now() + 9 * 3600e3), day = d => d.toISOString().slice(0, 10);
 const TODAY = day(jst), FROM = day(new Date(jst - BACK_DAYS * 864e5)), TO = day(new Date(+jst + AHEAD_DAYS * 864e5));
@@ -46,7 +52,7 @@ const salesDay = s => { const x = (s || "").match(/(\d{4})年(\d{1,2})月(\d{1,2
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function page(genre, n) {
-  if (MOCK) { const M = JSON.parse(fs.readFileSync(MOCK, "utf8")); return (M[genre] || [])[n - 1] || { Items: [] }; }
+  if (MOCK) return (MOCKD[genre] || [])[n - 1] || { Items: [] };
   const u = "https://openapi.rakuten.co.jp/services/api/BooksBook/Search/20170404?" + new URLSearchParams({
     applicationId: APP, accessKey: KEY, format: "json", formatVersion: "2", booksGenreId: genre, sort: "-releaseDate", hits: "30", page: String(n), outOfStockFlag: "1" });
   for (let t = 0; t < 4; t++) {
@@ -60,9 +66,41 @@ async function page(genre, n) {
   throw new Error("楽天の回数制限が続いた");
 }
 
-let seen = 0, added = 0, dated = 0;
-const out = [];
-for (const g of GENRES) {
+// openBD：ISBNのリストから書誌をまとめて引く（1回に1000件まで）
+async function openbd(isbns) {
+  const out = new Map();
+  for (let k = 0; k < isbns.length; k += 1000) {
+    const part = isbns.slice(k, k + 1000);
+    let j;
+    if (MOCK) j = part.map(i => (MOCKD.openbd || {})[i] || null);
+    else {
+      const r = await fetch("https://api.openbd.jp/v1/get", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: "isbn=" + part.join(",") });
+      if (!r.ok) throw new Error("openBD " + r.status);
+      j = await r.json();
+    }
+    part.forEach((i, n) => { if (j[n]) out.set(i, j[n]); });
+  }
+  return out;
+}
+const pdOf = s => { const d = String(s || "").replace(/[^0-9]/g, ""); return d.length >= 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : ""; };
+// openBD の書誌から、絵本だなの形の記録をつくる（発売日が日まで決まっていないものは、決まってから）
+function fromOpenbd(d) {
+  const s = d.summary || {}, o = d.onix || {}, dd = o.DescriptiveDetail || {}, te = ((dd.TitleDetail || {}).TitleElement) || {};
+  const pubs = [].concat((o.PublishingDetail || {}).PublishingDate || []);
+  const pd = pdOf(s.pubdate) || pdOf((pubs.find(x => x.PublishingDateRole === "01") || pubs[0] || {}).Date);
+  const title = (s.title || (te.TitleText || {}).content || "").trim();
+  if (!pd || !title || !s.isbn) return null;
+  const sub = ((te.Subtitle || {}).content || "").trim();
+  const c0 = [].concat(dd.Contributor || [])[0];
+  const who = ((c0 && (c0.PersonName || {}).content) || (s.author || "").split(/[／/]/)[0] || "").trim();
+  return { t: (sub && !title.includes(sub) ? title + " " + sub : title).normalize("NFC"), y: ((te.TitleText || {}).collationkey || "").replace(/\s/g, "").normalize("NFC"),
+    c: who.normalize("NFC"), p: (s.publisher || "").normalize("NFC").replace(/^株式会社\s*/, ""), yr: pd.slice(0, 4), i: isbn13(s.isbn), s: (s.series || "").normalize("NFC"), k: "N", pd };
+}
+
+// 1. 楽天で「新しく出る本のISBN」を集める（楽天の書名・日付は保存しない）
+const FOUND = new Set();
+let seen = 0;
+if (!NO_RK) for (const g of GENRES) {
   for (let n = 1; n <= MAX_PAGES; n++) {
     const j = await page(g, n), items = (j.Items || []).map(x => x.Item || x);
     if (!items.length) break;
@@ -72,27 +110,52 @@ for (const g of GENRES) {
       const pd = salesDay(it.salesDate), i = isbn13(it.isbn);
       if (pd && pd < FROM) { older++; continue; }
       if (!pd || pd > TO || !i || !i.startsWith("978")) continue;
-      const r = { t: [it.title, it.subTitle].filter(Boolean).join(" ").normalize("NFC").trim(), y: (it.titleKana || "").normalize("NFC"),
-        c: (it.author || "").split("/")[0].normalize("NFC").trim(), p: (it.publisherName || "").normalize("NFC").replace(/^株式会社\s*/, ""),
-        yr: pd.slice(0, 4), i, s: (it.seriesName || "").normalize("NFC"), k: "N", pd };
-      if (NG_PUB.test(r.p) || NG_T.test(nfkc(r.t))) continue;
-      if (INDEX.has(i)) { if (N.dates[i] !== pd) { N.dates[i] = pd; dated++; } continue; }
-      if (HAVE.has(i)) { const o = N.records.find(x => isbn13(x.i) === i); if (o && o.pd !== pd) { o.pd = pd; o.yr = pd.slice(0, 4); } continue; }
-      if (isChar(r)) r.ch = 1;
-      HAVE.add(i); N.records.push(r); out.push(r); added++;
+      FOUND.add(i);
     }
     if (older === items.length) break; // このページはもう古い本だけ
   }
 }
-// 前に足した本も、いまの決まりで外れるものは外す（決まりを足したとき用）
-N.records = N.records.filter(r => !NG_PUB.test(r.p) && !NG_T.test(nfkc(r.t)));
-for (const r of N.records) { if (isChar(r)) r.ch = 1; else delete r.ch; }
+
+// 2. いまある本＋新しく見つけた本を、openBD で引きなおす（前の記録も、毎回 openBD の書誌で置きかえる）
+const before = new Set(N.records.map(r => isbn13(r.i)));
+const want = [...new Set([...before, ...Object.keys(N.dates), ...FOUND])].filter(Boolean);
+const OB = await openbd(want);
+const records = [], dates = {}, out = [];
+let missing = 0;
+for (const i of want) {
+  const d = OB.get(i), r = d && fromOpenbd(d);
+  if (!r) { missing++; continue; }
+  if (NG_PUB.test(r.p) || NG_T.test(nfkc(r.t))) continue;
+  if (INDEX.has(i)) { dates[i] = r.pd; continue; }
+  if (isChar(r)) r.ch = 1;
+  records.push(r);
+  if (!before.has(i)) out.push(r);
+}
+records.sort((a, b) => a.i.localeCompare(b.i));
+// openBD がうまく返さなかったとき（通信の不調など）に、前の記録を消してしまわないように
+const keptBefore = records.filter(r => before.has(r.i)).length + Object.keys(dates).filter(i => before.has(i)).length;
+if (!MOCK && before.size > 20 && keptBefore < before.size * 0.3) throw new Error(`openBD で前の本が ${keptBefore}/${before.size} しか見つからない。書きこまずに止めます`);
 // 発売日だけの控えは半年で消す（本そのもの＝records は残す）
 const CUT = day(new Date(jst - 183 * 864e5));
-for (const [i, d] of Object.entries(N.dates)) if (d < CUT) delete N.dates[i];
-N.at = TODAY;
-N._説明 = "今月の新作のための新刊。楽天ブックスの「絵本」「しかけ絵本」ジャンルを発売日順に引いたもの（毎週月曜に自動で追加）。records＝索引にない本、dates＝索引にある本の発売日";
-const sorted = { _説明: N._説明, at: N.at, records: N.records, dates: N.dates };
-if (!DRY) fs.writeFileSync("new.json", JSON.stringify(sorted));
-console.log(JSON.stringify({ today: TODAY, range: [FROM, TO], seen, added, dated, records: N.records.length, dates: Object.keys(N.dates).length,
+for (const [i, d] of Object.entries(dates)) if (d < CUT) delete dates[i];
+
+// 3. isbn_plus.json：openBD に載っていて、書名が合うISBNだけ残す
+const nt = t => nfkc(t).replace(/[\s　・、。!！?？「」『』()（）\-ー〜~:：]/g, "").toLowerCase();
+let plusKept = 0, plusDropped = 0;
+const PLUS = fs.existsSync("isbn_plus.json") ? JSON.parse(fs.readFileSync("isbn_plus.json", "utf8")) : {};
+const PB = await openbd([...new Set(Object.values(PLUS).map(isbn13).filter(Boolean))]);
+const PLUS2 = {};
+for (const [k, v] of Object.entries(PLUS)) {
+  const d = PB.get(isbn13(v)), t = nt(k.split("|")[0]), ot = d ? nt((d.summary || {}).title) : "";
+  if (ot && t && (ot.includes(t) || t.includes(ot))) { PLUS2[k] = v; plusKept++; } else plusDropped++;
+}
+
+if (!MOCK && plusKept < Object.keys(PLUS).length * 0.3) throw new Error(`isbn_plus で openBD に合うのが ${plusKept}/${Object.keys(PLUS).length} しかない。書きこまずに止めます`);
+const NJ = { _説明: "今月の新作のための新刊。楽天ブックスの「絵本」「しかけ絵本」ジャンルで新しく出る本を見つけ、書誌は openBD から取ったもの（毎週月曜に自動で更新）。records＝索引にない本、dates＝索引にある本の発売日", at: TODAY, records, dates };
+if (!DRY) {
+  fs.writeFileSync("new.json", JSON.stringify(NJ));
+  fs.writeFileSync("isbn_plus.json", JSON.stringify(PLUS2, null, 1));
+}
+console.log(JSON.stringify({ today: TODAY, range: [FROM, TO], rakutenSeen: seen, found: FOUND.size, asked: want.length, notInOpenbd: missing,
+  records: records.length, dates: Object.keys(dates).length, added: out.length, isbnPlus: { kept: plusKept, dropped: plusDropped },
   sample: out.slice(0, 8).map(r => `${r.pd} ${r.t}｜${r.p}${r.ch ? "（キャラクター）" : ""}`) }, null, 1));
