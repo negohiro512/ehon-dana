@@ -1,0 +1,27 @@
+# 毎週月曜の朝（日本時間 5:43。点検の前）に、楽天ブックスから新刊を足して new.json をコミットする
+# 楽天のIDは Settings → Secrets and variables → Actions の RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY（無いときは何もしない）
+name: weekly-newbooks
+on:
+  schedule:
+    - cron: "43 20 * * 0"
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  newbooks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node tools/newbooks.mjs
+        env:
+          RAKUTEN_APP_ID: ${{ secrets.RAKUTEN_APP_ID }}
+          RAKUTEN_ACCESS_KEY: ${{ secrets.RAKUTEN_ACCESS_KEY }}
+      - name: commit
+        run: |
+          git config user.name "ehon-newbooks"
+          git config user.email "actions@users.noreply.github.com"
+          git add new.json
+          git diff --cached --quiet || (git commit -m "新刊：$(date +%Y-%m-%d)" && git push)
