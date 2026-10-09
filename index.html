@@ -246,7 +246,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.23（10/9 キャラクターの本は書店で買えるものだけ）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.24（10/9 セットの表紙を使わない）
   </footer>
 </div>
 
@@ -466,9 +466,14 @@ const GB_LOGO=`<a class="gb" href="https://books.google.com/" target="_blank" re
 function gbMark(img){const sec=img.closest(".shelf");const h=sec?sec.querySelector("h3"):document.querySelector("#status");
   if(h&&!h.querySelector(".gb"))h.insertAdjacentHTML("beforeend",GB_LOGO);}
 // 表紙の候補：今の版（px）→ 新しい版から順。Google に表紙のない版は次の版で試す（最大4つ。10/5）
-function wIsbns(w){if(!w._isbs){const eds=w.eds.slice().sort((a,b)=>(b.yr||"").localeCompare(a.yr||""));
+// 表紙と図書館に使う版の順：ふつうの版 → 点字・ミニ・大型などの版 → セットの番号。それぞれ新しい版から（10/9）
+const SETISBN=new Set();
+const SPECIAL_ED=/セット|てんじ|点字|さわる|ミニえほん|ミニ版|ミニブック|大型|ビッグ|ボードブック|普及版|特製版/;
+const edRank=e=>(SETISBN.has(isbn13(e.i))?2:0)+(SPECIAL_ED.test(nfkc((e.s||"")+" "+e.t))?1:0);
+const edsByUse=w=>w.eds.filter(e=>isbn10(e.i)).sort((a,b)=>edRank(a)-edRank(b)||(b.yr||"").localeCompare(a.yr||""));
+function wIsbns(w){if(!w._isbs){const eds=edsByUse(w);
   const sib=(w.en?(BYNE.get(ne(w.t))||[]):(BYNT.get(nt(w.t))||[])).filter(x=>x!==w&&!!x.bi===!!w.bi&&x.a&&x.a===w.a).flatMap(x=>[x.px,...x.eds.map(e=>e.i)]);
-  const l=[w.px,...eds.map(e=>e.i),...sib].filter(x=>x&&isbn10(x)).map(isbn13);w._isbs=[...new Set(l)].slice(0,5);}return w._isbs;}
+  const l=[w.px,...eds.map(e=>e.i),...sib.filter(x=>!SETISBN.has(isbn13(x)))].filter(x=>x&&isbn10(x)).map(isbn13);w._isbs=[...new Set(l)].slice(0,5);}return w._isbs;}
 function gbLoad(img){const bad=img.naturalWidth<20||(img.naturalWidth===128&&(img.naturalHeight===184||img.naturalHeight===170));
   if(!bad){img.parentNode.classList.add("has");gbMark(img);return;}gbNext(img);}
 function gbNext(img){const l=(img.dataset.alt||"").split(",").filter(Boolean);
@@ -497,6 +502,9 @@ async function load(){
       txt=await new Response(ds).text();
     }else txt=new TextDecoder().decode(u);
     const recs=JSON.parse(txt).filter(r=>!EXCLUDE_PUB.test(r.p));
+    // 書名のちがう本に同じISBNがついていたら、セットの番号（こぐまちゃんおでかけセット）。表紙・図書館には使わない（10/9）
+    {const m=new Map();for(const r of recs){const i=isbn13(r.i);if(!i)continue;const t=nt(r.t);if(!m.has(i))m.set(i,new Set());m.get(i).add(t);}
+     for(const [i,ts] of m)if(ts.size>1)SETISBN.add(i);}
     const m=new Map();
     for(const r of recs){
       // 同じ書名・同じ出版社は1作品にまとめる（版ごとに作者の書き方がばらばらなため。10/3）
@@ -757,7 +765,7 @@ function show(i){
   $("#searchBox").hidden=true;
   // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5 Hiro）
   // 本だなの表紙と同じ順（今の版 → 新しい版から）で選ぶ。本だなと本のページで表紙がちがわないように（10/9）
-  const isb=w.px||w.eds.slice().sort((a,b)=>(b.yr||"").localeCompare(a.yr||"")).map(e=>e.i).find(x=>isbn10(x))||"";
+  const isb=w.px||(edsByUse(w)[0]||{}).i||"";
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない
   // 段ごとに分ける：つづき／おなじ作者／おなじシリーズ（同じ本は上の段に1回だけ）
   const tiers={べつの版:[],原書:[],つづき:[],作者:[],シリーズ:[]},seen=new Set([vk(w)]);
