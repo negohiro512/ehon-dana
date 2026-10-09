@@ -207,6 +207,7 @@ details.eds li span{min-width:0;overflow-wrap:anywhere}
 .today{display:flex;flex-direction:column;gap:14px}
 .feat{background:var(--card);border-radius:4px 18px 18px 18px;padding:16px 16px 14px;display:flex;flex-direction:column;gap:2px;overflow:hidden;box-shadow:0 2px 0 var(--shadow)}
 .feat.season{background:var(--sun-soft);box-shadow:none}
+.feat.new{background:var(--leaf-soft);box-shadow:none}
 .feat h3{font:600 22px/1.4 var(--hand);margin:2px 0 0}
 .feat .lead2{margin:0;font-size:14px;color:var(--sub);line-height:1.7}
 .feat .board{margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}
@@ -253,7 +254,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.34（10/9 シリーズ名で英語の版を分ける）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.35（10/9 今月の新作の本だな）
   </footer>
 </div>
 
@@ -545,6 +546,15 @@ async function load(){
       txt=await new Response(ds).text();
     }else txt=new TextDecoder().decode(u);
     const recs=JSON.parse(txt).filter(r=>!EXCLUDE_PUB.test(r.p));
+    // 出版社名の「株式会社 」と、重なった名前（福音館書店|福音館書店）をととのえる（10/9）
+    const fixPub=r=>{if(r.p&&/\||^株式会社/.test(r.p))r.p=r.p.split("|")[0].replace(/^株式会社\s*/,"");};
+    recs.forEach(fixPub);
+    // 新刊（new.json・10/9）：索引にない新しい本を足し、索引にある本には発売日（pd）をつける。「今月の新作」の本だなに使う
+    try{const N=await (await fetch("new.json")).json(),nf=x=>typeof x==="string"?x.normalize("NFC"):x;
+      const D=N.dates||{};for(const r of recs){const i=isbn13(r.i);if(i&&D[i])r.pd=D[i];}
+      const have=new Set(recs.map(r=>isbn13(r.i)).filter(Boolean));
+      for(const r of N.records||[]){const i=isbn13(r.i);if(!i||have.has(i)||EXCLUDE_PUB.test(r.p))continue;have.add(i);
+        const x={};for(const k in r)x[k]=nf(r[k]);fixPub(x);recs.push(x);}}catch(e){}
     // 書名のちがう本に同じISBNがついていたら、セットの番号（こぐまちゃんおでかけセット）。表紙・図書館には使わない（10/9）
     {const m=new Map();for(const r of recs){const i=isbn13(r.i);if(!i)continue;const t=nt(r.t);if(!m.has(i))m.set(i,new Set());m.get(i).add(t);}
      for(const [i,ts] of m)if(ts.size>1)SETISBN.add(i);}
@@ -572,7 +582,7 @@ async function load(){
     for(const w of WORKS)if(w.bi==="英語版"){w.L=0;w.A=[];}
     // キャラクターもの（テレビ・映画・おもちゃ発）は、いま書店で買える本（openBDに載っている本）だけ残す。賞・リストに載っている本は残す（10/9）
     try{const S=new Set((await (await fetch("instock.json")).json()).isbn9);
-      WORKS=WORKS.filter(w=>w.L||w.A.length||!w.eds.every(isCharEd)||w.eds.some(e=>{const i=isbn13(e.i);return i&&S.has(i.slice(3,12));}));}catch(e){}
+      WORKS=WORKS.filter(w=>w.L||w.A.length||!w.eds.every(isCharEd)||w.eds.some(e=>e.pd)||w.eds.some(e=>{const i=isbn13(e.i);return i&&S.has(i.slice(3,12));}));}catch(e){}
     // 作者の表示名：「姓, 名」の形を優先し、いちばん多い書き方
     for(const n of WHONAME.values()){let best=[...n.forms.keys()][0]||"",bs=-Infinity;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=slashName(nfkc(best)," ").trim();delete n.forms;}
     for(const [r,nm] of NAMEOF)WHONAME.get(r).name=nm;
@@ -611,6 +621,7 @@ async function load(){
     try{const T=await (await fetch("themes.json")).json();
       THEMES=T.themes.map(t=>({...t,works:uniq(t.books.map(findThemeBook).filter(Boolean),99)})).filter(t=>t.works.length>=4);}catch(e){THEMES=[];}
     pickToday();
+    buildNew();
     READY=true;
     render();
     startFromUrl();
@@ -685,18 +696,39 @@ function themeChips(except){const l=THEMES.filter(t=>!except.includes(t.id));
   return l.length?`<div class="tchips"><span>ほかの特集</span><div class="chips">${l.map(t=>`<button class="chip th" type="button" data-theme="${t.id}">${esc(t.name.replace(/の本$/,""))}</button>`).join("")}</div></div>`:"";}
 function renderToday(){const el=$("#today");
   const ts=[...TODAY.season.map(t=>[t,true]),...(TODAY.pick?[[TODAY.pick,false]]:[])];
-  if(!ts.length){el.hidden=true;return;}
-  el.innerHTML=ts.map(([t,s])=>featBlock(t,s)).join("")+themeChips(ts.map(([t])=>t.id));el.hidden=false;}
+  if(!ts.length&&!NEWT){el.hidden=true;return;}
+  el.innerHTML=ts.map(([t,s])=>featBlock(t,s)).join("")+newBlock()+themeChips(ts.map(([t])=>t.id));el.hidden=false;}
+// ---------- 今月の新作（10/9）：new.json の発売日から。出たばかりの本は、図書館に入るまで少しかかる ----------
+let NEWT=null;
+const NEW_NG=/紙芝居|かみしばい|かるた|カルタ|ポケット図鑑|【POD】|検定|ガイドブック|大集合/;
+function buildNew(){const now=new Date(),ym=d=>d.toISOString().slice(0,7);
+  const today=new Date(now.getTime()-now.getTimezoneOffset()*6e4).toISOString().slice(0,10);
+  const ok=WORKS.filter(w=>!w.en&&!w.bi&&!isForeign(w)&&!/\|c($|\|)/.test(w.key)&&!w.eds.every(isCharEd)&&!w.eds.some(e=>e.ch)&&!NEW_NG.test(nfkc(w.t)));
+  for(const w of ok)w.pd=w.eds.map(e=>e.pd||"").sort().pop();
+  // 新装版・改訂版や、前に出た本の新しい版は入れない（はじめて本になったのが今年か去年の本だけ）
+  const out=ok.filter(w=>w.pd&&w.pd<=today&&(w.yr==="9999"||+w.yr>=+w.pd.slice(0,4)-1)&&!/新装版|改訂版|復刻/.test(nfkc(w.t))).sort((a,b)=>b.pd.localeCompare(a.pd)||b.score-a.score);
+  // 今月に出た本。月のはじめで少ないときは、先月の本も入れる
+  const m0=today.slice(0,7),d=new Date(today.slice(0,7)+"-01T00:00:00Z");d.setUTCMonth(d.getUTCMonth()-1);const m1=ym(d);
+  let l=out.filter(w=>w.pd.startsWith(m0));if(l.length<12)l=out.filter(w=>w.pd.startsWith(m0)||w.pd.startsWith(m1));
+  if(l.length<4){NEWT=null;return;}
+  const mon=+m0.slice(5),wide=l.some(w=>!w.pd.startsWith(m0));
+  NEWT={id:"new",isNew:true,name:"今月の新作",label:wide?`${mon===1?12:mon-1}月・${mon}月に出た本`:`${mon}月に出た本`,
+    lead:"出たばかりの絵本です。図書館に入るまで、少し時間がかかることがあります。",works:l};}
+const newBook=w=>book(w).replace(/<span class="y">[^<]*<\/span><\/button>$/,`<span class="y">${+w.pd.slice(5,7)}/${+w.pd.slice(8,10)} 発売</span></button>`);
+function newBlock(){const t=NEWT;if(!t)return "";
+  return `<section class="shelf feat new"><div class="eyebrow">${esc(t.label)}</div><h3>${esc(t.name)}</h3><p class="lead2">${esc(t.lead)}</p>
+    <div class="board">${t.works.slice(0,10).map(newBook).join("")}</div>
+    <button class="read" type="button" data-theme="new">${t.works.length}冊をぜんぶ見る</button></section>`;}
 function showTheme(id){
-  const t=THEMES.find(x=>x.id===id);if(!t)throw new Error("no theme");$("#searchBox").hidden=true;
+  const t=id==="new"?NEWT:THEMES.find(x=>x.id===id);if(!t)throw new Error("no theme");$("#searchBox").hidden=true;
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
     <div style="display:flex;flex-direction:column;gap:6px">
-      <div class="eyebrow">${esc(t.season?t.label:"特集")}</div>
+      <div class="eyebrow">${esc(t.season||t.isNew?t.label:"特集")}</div>
       <h2 style="font:600 26px/1.4 var(--hand);margin:0;text-wrap:balance">${esc(t.name)}</h2>
       <p class="about">${esc(t.lead)}　${t.works.length}冊。開くと、近くの図書館でさがせます。</p>
     </div>
-    <section class="shelf"><div class="board grid">${t.works.map(w=>book(w)).join("")}</div></section>
+    <section class="shelf"><div class="board grid">${t.works.map(w=>t.isNew?newBook(w):book(w)).join("")}</div></section>
     ${themeChips([t.id])}
   </div>`;
   window.scrollTo(0,0);}
@@ -897,7 +929,7 @@ function show(i){
 }
 
 function backBar(){const prev=stack[stack.length-2];
-  const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":prev.startsWith("t")?"特集へもどる":"まえの本へ";
+  const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":prev==="tnew"?"新作へもどる":prev.startsWith("t")?"特集へもどる":"まえの本へ";
   return `<div class="bar"><button class="back" id="back" type="button">${label}</button><span style="flex:1"></span>
     <button class="barbtn" id="tosearch" type="button" aria-label="書名でさがす"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
     <button class="barbtn" id="tohome" type="button" aria-label="はじめの画面へ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/></svg></button></div>`;}
