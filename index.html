@@ -253,7 +253,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.27（10/9 英語版を分ける・セットの表紙を出さない）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.28（10/9 英語版の書名を英語に）
   </footer>
 </div>
 
@@ -411,6 +411,16 @@ function autoSeries(){
       for(const w of l)SEROF.set(w,ser);}}
   // 本がぬけて1冊だけになった自動のシリーズは消す
   SERIESLIST=SERIESLIST.filter(s=>{if(s.works.length>=2)return true;for(const w of s.works)if(SEROF.get(w)===s)SEROF.delete(w);return false;});}
+// ---- 英語版の書名は英語で出す（作者名はそのまま。10/9）----
+// データの「= 英語の書名」、副題の英語、それもなければ出版社のデータ（openBD）から引いた書名
+const ENTITLE={"9784834085716":"Good Evening Mr. Moon","9784834085723":"The Goldfish Got Away","9784834085730":"Sandwich! Sandwich!","9784834085747":"Egg Babies","9784834085754":"Animal Moms","9784834086973":"Allie the Gator and Her Treat","9784834086980":"Bathtub in the Woods","9784834086997":"All Aboard! The Train Is Now Departing","9784834087000":"Hugs","9784834087017":"Hey Buddy, Which One?","9784902216400":"Katie and Boo","9784903924236":"Guess How Much I Love You"};
+function enTitle(w){
+  for(const e of w.eds){const t=nfkc(e.t),m=ENTITLE[isbn13(e.i)];if(m)return m;
+    const par=t.split(/ = /)[1];if(par&&/[A-Za-z]{3}/.test(par))return par.split(/ : /)[0].trim();
+    const sub=t.split(/ : /).slice(1).join(" ").replace(/\(?英語版\)?/,"").trim();if(/^[A-Za-z][^ぁ-んァ-ヶ一-龯]*$/.test(sub)&&/[A-Za-z]{3}/.test(sub))return sub;
+    const lead=t.match(/^[A-Za-z][A-Za-z0-9 ,.'’!?&-]{2,}(?=\s*[ぁ-んァ-ヶ一-龯])/);if(lead)return lead[0].trim();}
+  return "";}
+const ttl=w=>{if(w.bi!=="英語版")return w.t;if(w._dt===undefined)w._dt=enTitle(w);return w._dt||w.t;};
 const SPLITOF=new Map();
 function splitWorks(){const out=[];
   // キャラクターの版に分けた側は、賞・リストの印を引きつがない（印は書名＋出版社で付いているので、ふつうの絵本のほうのもの）
@@ -532,6 +542,8 @@ async function load(){
     WORKS=[...m.values()];
     aliasAuthors();
     WORKS=splitWorks();
+    // 英語版は、賞・リストの印を引きつがない（印は書名＋出版社で付いていて、日本語版のもの。10/9 おつきさまこんばんは）
+    for(const w of WORKS)if(w.bi==="英語版"){w.L=0;w.A=[];}
     // キャラクターもの（テレビ・映画・おもちゃ発）は、いま書店で買える本（openBDに載っている本）だけ残す。賞・リストに載っている本は残す（10/9）
     try{const S=new Set((await (await fetch("instock.json")).json()).isbn9);
       WORKS=WORKS.filter(w=>w.L||w.A.length||!w.eds.every(isCharEd)||w.eds.some(e=>{const i=isbn13(e.i);return i&&S.has(i.slice(3,12));}));}catch(e){}
@@ -584,7 +596,7 @@ function tags(w,max){const out=[];
   for(const a of w.A.slice(0,max))out.push(`<span class="tag prize">${esc(a)}</span>`);
   return out.length?`<div class="tags">${out.join("")}</div>`:"";}
 function ghost(title,why){return `<div class="book ghost" title="まだ索引に入っていない本">${cover(title,"md")}${why?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(nfkc(title))}</span><span class="y"></span></div>`;}
-function book(w,now,why){why=why||w.bi;return `<button class="book${now?" now":""}" type="button" data-i="${w.i}">${thumb(w,"md")}${why&&!now?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(w.t)}</span><span class="y">${yr(w)}</span></button>`;}
+function book(w,now,why){why=why||w.bi;return `<button class="book${now?" now":""}" type="button" data-i="${w.i}">${thumb(w,"md")}${why&&!now?`<span class="why">${esc(why)}</span>`:""}<span class="n">${esc(ttl(w))}</span><span class="y">${yr(w)}</span></button>`;}
 // items は本の配列、または {w, why} の配列
 function shelf(title,sub,items,now){if(!items.length)return "";
   return `<section class="shelf"><h3>${esc(title)}</h3>${sub?`<p class="sub">${esc(sub)}</p>`:""}<div class="board">${items.map(x=>x.w?book(x.w,x.w===now,x.why):book(x,x===now)).join("")}</div></section>`;}
@@ -692,7 +704,7 @@ function render(){
     return;
   }
   $("#status").textContent=`${hits.length.toLocaleString()}冊。おすすめに多く載っている本が上にきます`;
-  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(w.t)}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
+  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(ttl(w))}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
     ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}`;
 }
 
@@ -795,10 +807,10 @@ function show(i){
   const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
   const col=COLBYWHO[w.a];
   const eds=w.eds.slice().sort((a,b)=>(a.yr||"").localeCompare(b.yr||"")).map(e=>`<li>${e.yr||"不明"}<span>${esc(e.p)}${e.s?"　"+esc(e.s):""}</span></li>`).join("");
-  const facts=(w.en?"原書・外国語版<br>":"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${esc(w.bi)}の版`:"");
+  const facts=(w.en?"原書・外国語版<br>":"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${w.bi==="英語版"?"英語版":esc(w.bi)+"の版"}`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
-    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p></div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
+    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p></div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
