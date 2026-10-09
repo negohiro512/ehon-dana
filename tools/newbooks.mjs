@@ -15,8 +15,10 @@ if (!MOCK && (!APP || !KEY)) { console.log("RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY 
 
 const GENRES = ["001003003", "001003005"]; // 絵本・しかけ絵本
 const BACK_DAYS = 45, AHEAD_DAYS = 100, MAX_PAGES = 40;
-const NG_PUB = /文芸社|新風舎|幻冬舎メディアコンサルティング|日本文学館|日本障害者リハビリテーション協会|ふきのとう文庫|石田製本/;
-const NG_T = /シール|ドリル|ギフト|BOX|ボックス|セット|特典|限定|ミニ|大型絵本|全\d+巻|カレンダー|ぬりえ|塗り絵|パズル|ステッカー|グッズ|ポスター/;
+// 自費出版・共同出版の版元（図書館にはまず入らない）。10/10 初回の自動取得で見つかったものを足した
+const NG_PUB = /文芸社|新風舎|幻冬舎メディアコンサルティング|幻冬舎ルネッサンス|日本文学館|みらいパブリッシング|東京図書出版|リフレ出版|パレード|丸善プラネット|三宝出版|風詠社|ブイツーソリューション|日本橋出版|22世紀アート|銀河書籍|つむぎ書房|日本障害者リハビリテーション協会|ふきのとう文庫|石田製本/;
+// 絵本でないもの（シール・ドリル・パズル・おもちゃつき・料理本など）
+const NG_T = /シール|ドリル|ギフト|BOX|ボックス|セット|特典|限定|ミニ|大型絵本|全\d+巻|カレンダー|ぬりえ|塗り絵|パズル|\d+ピース|ステッカー|グッズ|ポスター|マグネット|くみたて|組み立て|クラフト|ゲーム|クッキー|レシピ|料理|手帳|ノート|POD/;
 
 // アプリと同じキャラクターの判定（index.html の CHAR をそのまま使う）
 const html = fs.readFileSync("index.html", "utf8");
@@ -82,6 +84,9 @@ for (const g of GENRES) {
     if (older === items.length) break; // このページはもう古い本だけ
   }
 }
+// 前に足した本も、いまの決まりで外れるものは外す（決まりを足したとき用）
+N.records = N.records.filter(r => !NG_PUB.test(r.p) && !NG_T.test(nfkc(r.t)));
+for (const r of N.records) { if (isChar(r)) r.ch = 1; else delete r.ch; }
 // 発売日だけの控えは半年で消す（本そのもの＝records は残す）
 const CUT = day(new Date(jst - 183 * 864e5));
 for (const [i, d] of Object.entries(N.dates)) if (d < CUT) delete N.dates[i];
