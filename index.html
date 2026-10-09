@@ -113,7 +113,10 @@ h1{font:900 30px/1 var(--round);letter-spacing:.02em;margin:0}
 .back{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--line);background:var(--card);border-radius:999px;padding:8px 16px 8px 12px;font-weight:500;font-size:15px;cursor:pointer}
 .back::before{content:"";width:8px;height:8px;border-left:2.5px solid currentColor;border-bottom:2.5px solid currentColor;rotate:45deg;margin-left:4px}
 .page{display:flex;flex-direction:column;gap:26px}
-.hero{display:grid;grid-template-columns:132px 1fr;gap:18px;align-items:end}
+/* 表紙と書名は上をそろえる。賞・リストの札は、その下に横いっぱいで並べる（札が多いと表紙が下にずれていた。10/9） */
+.hero{display:grid;grid-template-columns:132px 1fr;gap:14px 18px;align-items:start}
+.hero .htags{grid-column:1/-1;min-width:0}
+.hero .htags .tags{margin:0}
 .hero .txt{min-width:0}
 .hero h2{font:700 24px/1.35 var(--round);margin:0;text-wrap:balance;overflow-wrap:anywhere}
 .hero .who{margin:8px 0 0;font-size:15px;font-weight:700}
@@ -246,7 +249,7 @@ footer a{color:inherit}
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.24（10/9 セットの表紙を使わない）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.25（10/9 本のページの表紙と書名の上をそろえる）
   </footer>
 </div>
 
@@ -788,7 +791,7 @@ function show(i){
   const facts=(w.en?"原書・外国語版<br>":"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${esc(w.bi)}の版`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
-    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${srcTags(w)}</div></div>
+    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(w.t)}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p></div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
