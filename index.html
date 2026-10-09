@@ -245,7 +245,7 @@ footer a{color:inherit}
 
   <footer>
     約13万冊の本を、国立国会図書館の書誌データから集めています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.20（10/9 きょうの本だな・別の本を分ける）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.21（10/9 書名のはじめが同じ本をシリーズに）
   </footer>
 </div>
 
@@ -381,6 +381,28 @@ const CHAR=/ディズニー|Disney|DISNEY|ピクサー|Pixar|アンパンマン|
 // 原作の「汽車のえほん」（オードリー）は図書館の本なので外さない
 const isCharEd=r=>CHAR.test(nfkc([r.t,r.s,r.c].join(" ")))&&!/汽車のえほん/.test(nfkc(r.s));
 // いちばん版の多いものが、もとの鍵（リスト・シリーズ・さっき見た本の参照先）を引きつぐ
+// ---- 書名の書き出しが同じ本をシリーズにする（10/9 ようかいむらのどんどこまつり・ひなまつり・バレンタイン…）----
+// 国会図書館のデータにシリーズ名がない本でも、同じ作者・同じ出版社で、書名のはじめ（4文字以上）が同じ本が3冊以上あればシリーズ。
+// 確かめたシリーズの本は動かさない。自動で決めたシリーズより、この書名のまとまりを優先する（「ようかい」に三起商行の本が混ざり、どんどこまつりが抜けていた）
+function autoSeries(){
+  const G=new Map(),fixed=w=>SEROF.has(w)&&SEROF.get(w).confirmed;
+  for(const w of WORKS){if(fixed(w)||!w.a||w.en||w.bi||isForeign(w))continue;const k=w.a+"|"+np(w.p);if(!G.has(k))G.set(k,[]);G.get(k).push(w);}
+  for(const ws of G.values()){if(ws.length<3)continue;
+    const P=new Map();
+    for(const w of ws){const t=nt(w.t);for(let L=4;L<=Math.min(t.length,30);L++){const p=t.slice(0,L);if(!P.has(p))P.set(p,new Set());P.get(p).add(w);}}
+    const done=new Set();
+    for(const [p,set] of [...P].filter(([,s])=>s.size>=3).sort((a,b)=>b[1].size-a[1].size||b[0].length-a[0].length)){
+      const l=[...set].filter(w=>!done.has(w));if(l.length<3)continue;l.forEach(w=>done.add(w));
+      const olds=new Set(l.map(w=>SEROF.get(w)));if(olds.size===1&&!olds.has(undefined)&&[...olds][0].works.length===l.length)continue;
+      for(const o of olds)if(o)o.works=o.works.filter(w=>!set.has(w));
+      // 名前：いちばん古い本の書名の、はじめの部分（「の」で終わるなら外す）
+      const f=l.slice().sort((a,b)=>a.yr.localeCompare(b.yr))[0];let n="",c=0;
+      for(const ch of nfkc(f.t)){if(c>=p.length)break;n+=ch;if(nt(ch))c++;}
+      const name=n.replace(/^[\[［(（「『]+/,"").replace(/[の\s・.．,，、:：]+$/,"");
+      const ser={name,confirmed:false,works:l.sort((a,b)=>a.yr.localeCompare(b.yr))};SERIESLIST.push(ser);
+      for(const w of l)SEROF.set(w,ser);}}
+  // 本がぬけて1冊だけになった自動のシリーズは消す
+  SERIESLIST=SERIESLIST.filter(s=>{if(s.works.length>=2)return true;for(const w of s.works)if(SEROF.get(w)===s)SEROF.delete(w);return false;});}
 const SPLITOF=new Map();
 function splitWorks(){const out=[];
   // キャラクターの版に分けた側は、賞・リストの印を引きつがない（印は書名＋出版社で付いているので、ふつうの絵本のほうのもの）
@@ -523,6 +545,7 @@ async function load(){
         const ser={name:x.n,confirmed:!!x.c,works:ws};SERIESLIST.push(ser);
         for(const w of seen)if(!SEROF.has(w))SEROF.set(w,ser);});
     }catch(e){}
+    autoSeries();
     // きょうの本だな（季節と特集。themes.json・10/9）
     try{const T=await (await fetch("themes.json")).json();
       THEMES=T.themes.map(t=>({...t,works:uniq(t.books.map(findThemeBook).filter(Boolean),99)})).filter(t=>t.works.length>=4);}catch(e){THEMES=[];}
