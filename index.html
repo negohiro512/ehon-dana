@@ -195,6 +195,7 @@ details.eds li span{min-width:0;overflow-wrap:anywhere}
 .buy{display:flex;justify-content:center;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:-14px;border:1.5px solid var(--line);border-radius:999px;padding:10px 18px;font-size:13px;color:var(--sub);text-decoration:none;background:var(--card)}.buy b{font-size:15px;color:var(--ink)}.buy:hover{border-color:var(--leaf)}
 .cv.img a{display:block;position:absolute;inset:0}
 .credit{font-size:11px;color:var(--sub);margin-top:6px}.credit a{color:inherit}
+.agey{display:inline-flex;align-items:baseline;gap:4px 8px;flex-wrap:wrap;background:var(--sun-soft);color:var(--ink,inherit);border-radius:10px;padding:4px 10px;margin:2px 0 4px;font-size:13px}.agey b{font-size:15px}.agey small{font-size:11px;color:var(--sub)}
 .ad{display:inline-block;font-size:10px;line-height:1;padding:3px 5px;margin-left:6px;border:1px solid var(--line);border-radius:4px;color:var(--sub);vertical-align:1px;font-weight:400}
 footer details{margin-top:8px}footer summary{cursor:pointer;color:var(--ink,inherit)}footer details p{margin:6px 0}
 /* 本のページの表紙：読みこめたら、枠を表紙の形にあわせて上に詰める（正方形の表紙で上があいていた。10/9） */
@@ -256,7 +257,7 @@ footer a{color:inherit}
   <footer>
     約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.38（10/11 新刊の発売日は openBD のものだけ）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.39（10/12 何歳向けの目安）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
       <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
@@ -899,6 +900,31 @@ function rememberWork(w){try{const l=[w.key,...(JSON.parse(localStorage.getItem(
 function goHome(focus){$("#q").value="";shown=40;
   if(stack.length){stack=[];try{history.pushState({stack:[],d:(H().d||0)+1},"",urlOf([]));}catch(e){}}
   go(undefined);window.scrollTo(0,0);if(focus)setTimeout(()=>$("#q").focus(),50);}
+// ---------- 何歳向けの目安（10/12。親戚の声「何歳向けかわかりにくい」）----------
+// 1. 図書館のおすすめリストの年齢の段（いちばん幅のせまいもの）　2. 書名・シリーズ名に書いてある年齢
+// どちらも無い本には出さない（推しはかりはしない）
+const AGE_KANJI={"〇":0,"一":1,"二":2,"三":3,"四":4,"五":5,"六":6};
+function ageRange(lab){const t=nfkc(lab).replace(/[〜～]/g,"~");const [l,r]=t.split("~");
+  const num=x=>{const m=(x||"").match(/(\d+)\s*(?:歳|才|さい)(半)?/);return m?+m[1]+(m[2]?0.5:0):null;};
+  // 「0〜2歳」の左は単位なし
+  let a=num(l);if(a===null&&r!==undefined&&/^\s*\d+\s*$/.test(l))a=+l;if(a===null)a=/乳/.test(l)?0:/幼児/.test(l)?3:null;if(a===null)return null;
+  if(r===undefined)return /幼児/.test(l)&&!/乳/.test(l)?[3,6]:[a,null];
+  let b=num(r);if(b===null)b=/入学前|幼児/.test(r)?6:/低学年/.test(r)?8:/小学/.test(r)?12:r.trim()===""?null:null;
+  return [a,b];}
+let AGELIST=null;
+function ageOf(w){if(w._age!==undefined)return w._age;let best=null;
+  // リストの本は書名＋出版社の鍵で載っている（作品を分けたあとも BYKEY で引ける）
+  if(!AGELIST){AGELIST=new Map();for(const l of SRC)for(const sec of l.secs)if(sec.age)for(const it of sec.items){const x=it[1]&&BYKEY.get(it[1]);if(!x)continue;if(!AGELIST.has(x))AGELIST.set(x,[]);AGELIST.get(x).push(sec.age);}}
+  for(const lab of AGELIST.get(w)||[]){const g=ageRange(lab);if(!g||g[0]>=7||(g[1]!=null&&g[1]<g[0]))continue;
+    const span=(g[1]??6)-g[0];if(span>=6)continue;if(!best||span<best.span)best={g,span,src:"図書館のおすすめリストから"};}
+  if(!best){const t=nfkc([w.t,...w.s].join(" ")).replace(/[〇一二三四五六](?=\s*(?:歳|才|さい))/g,c=>AGE_KANJI[c]);let m,g=null;
+    if((m=t.match(/(?<![0-9])([0-6])\s*[・.]\s*([0-6])(?:\s*[・.]\s*([0-6]))?\s*[.]?\s*(?:歳|才|さい)/)))g=[+m[1],+(m[3]||m[2])];
+    else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(半)?\s*(?:から|ごろ|頃|~|〜)/)))g=[+m[1]+(m[2]?0.5:0),null];
+    else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(?:の|児|向)/)))g=[+m[1],+m[1]];
+    else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2/.test(t))g=[0,2];
+    if(g&&g[0]<7&&(g[1]==null||g[1]>=g[0]))best={g,src:"書名・シリーズ名から"};}
+  return w._age=best;}
+const ageTxt=g=>{const f=x=>Math.floor(x)+(x%1?"歳半":"歳");return g[1]==null?f(g[0])+"から":g[0]===g[1]?f(g[0]):`${Math.floor(g[0])}${g[0]%1?"歳半":""}〜${f(g[1])}`;};
 function show(i){
   const w=WORKS[i];if(!w)throw new Error("no work");rememberWork(w);
   $("#searchBox").hidden=true;
@@ -924,7 +950,8 @@ function show(i){
   const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
   const col=COLBYWHO[w.a];
   const eds=w.eds.slice().sort((a,b)=>(a.yr||"").localeCompare(b.yr||"")).map(e=>`<li>${e.yr||"不明"}<span>${esc(e.p)}${e.s?"　"+esc(e.s):""}</span></li>`).join("");
-  const facts=(w.en?"原書・外国語版<br>":"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${w.bi==="英語版"?"英語版":esc(w.bi)+"の版"}`:"");
+  const ag=ageOf(w);
+  const facts=(w.en?"原書・外国語版<br>":"")+(ag?`<span class="agey">目安 <b>${ageTxt(ag.g)}</b><small>${ag.src}</small></span><br>`:"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${w.bi==="英語版"?"英語版":esc(w.bi)+"の版"}`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
     <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p></div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
