@@ -257,7 +257,7 @@ footer a{color:inherit}
   <footer>
     約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.39（10/12 何歳向けの目安）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.40（10/12 何歳向けの目安に出版社のシリーズの年齢）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
       <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
@@ -611,6 +611,8 @@ async function load(){
       for(const s of SRC)for(const sec of s.secs)for(const it of sec.items){if(!it[1])continue;
         if(!MEMB.has(it[1]))MEMB.set(it[1],[]);MEMB.get(it[1]).push({s,sec,note:it[2]});}
     }catch(e){SRC=[];}
+    // 出版社がシリーズに決めている対象年齢（10/12）
+    try{const A=await (await fetch("series_age.json")).json();for(const e of A.series)for(const n of e.names)SERAGE.set(nfkc(n).replace(/\s+/g," ").trim(),e);}catch(e){}
     // シリーズ（Hiro確定の34＋自動判定。10/3）
     try{const S=await (await fetch("series.json")).json();
       S.forEach((x,si)=>{const ws=[],seen=new Set();
@@ -911,7 +913,7 @@ function ageRange(lab){const t=nfkc(lab).replace(/[〜～]/g,"~");const [l,r]=t.
   if(r===undefined)return /幼児/.test(l)&&!/乳/.test(l)?[3,6]:[a,null];
   let b=num(r);if(b===null)b=/入学前|幼児/.test(r)?6:/低学年/.test(r)?8:/小学/.test(r)?12:r.trim()===""?null:null;
   return [a,b];}
-let AGELIST=null;
+let AGELIST=null,SERAGE=new Map();
 function ageOf(w){if(w._age!==undefined)return w._age;let best=null;
   // リストの本は書名＋出版社の鍵で載っている（作品を分けたあとも BYKEY で引ける）
   if(!AGELIST){AGELIST=new Map();for(const l of SRC)for(const sec of l.secs)if(sec.age)for(const it of sec.items){const x=it[1]&&BYKEY.get(it[1]);if(!x)continue;if(!AGELIST.has(x))AGELIST.set(x,[]);AGELIST.get(x).push(sec.age);}}
@@ -923,6 +925,11 @@ function ageOf(w){if(w._age!==undefined)return w._age;let best=null;
     else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(?:の|児|向)/)))g=[+m[1],+m[1]];
     else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2/.test(t))g=[0,2];
     if(g&&g[0]<7&&(g[1]==null||g[1]>=g[0]))best={g,src:"書名・シリーズ名から"};}
+  // 3. 出版社がシリーズに決めている対象年齢（series_age.json）。書名に年齢が書いてある本より先に使う
+  if(!best||best.src[0]==="書"){let sb=null;
+    for(const s of w.s){const e=SERAGE.get(nfkc(s).replace(/\s+/g," ").trim());if(!e||(e.from&&+(w.yr||0)<e.from))continue;
+      const span=(e.max??6)-e.min;if(!sb||span<sb.span)sb={g:[e.min,e.max],span,src:"出版社のシリーズの対象年齢から"};}
+    if(sb)best=sb;}
   return w._age=best;}
 const ageTxt=g=>{const f=x=>Math.floor(x)+(x%1?"歳半":"歳");return g[1]==null?f(g[0])+"から":g[0]===g[1]?f(g[0]):`${Math.floor(g[0])}${g[0]%1?"歳半":""}〜${f(g[1])}`;};
 function show(i){
