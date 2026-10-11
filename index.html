@@ -218,6 +218,11 @@ footer details{margin-top:8px}footer summary{cursor:pointer;color:var(--ink,inhe
 .tchips{display:flex;flex-direction:column;gap:6px}
 .tchips>span{font-size:13px;color:var(--sub);font-weight:500}
 .chip.th{border-color:transparent;background:var(--leaf-soft)}
+.cats{display:flex;flex-direction:column;gap:10px;margin-top:6px}.cats h3{font:600 20px/1.4 var(--hand);margin:0}.cats .lead2{margin:0;font-size:13px;color:var(--sub)}
+.cgroup{display:flex;flex-direction:column;gap:4px}.cgroup>span{font-size:12px;color:var(--sub);font-weight:500}
+.chip.cat{background:var(--card);border-color:var(--line)}
+.ctags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}.ctags .chip{font-size:12px;padding:4px 10px}
+.catjump{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin:0 0 10px;padding:12px 16px;border:0;border-radius:14px;background:var(--leaf-soft);color:inherit;font:inherit;font-size:15px;text-align:left;cursor:pointer}.catjump b{white-space:nowrap;color:var(--leaf)}
 footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
 footer a{color:inherit}
 @media (prefers-reduced-motion:reduce){.book .cv{transition:none}.book:hover .cv{translate:none}}
@@ -257,7 +262,7 @@ footer a{color:inherit}
   <footer>
     約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.40（10/12 何歳向けの目安に出版社のシリーズの年齢）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.41（10/12 すきなものからさがす）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
       <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
@@ -611,6 +616,9 @@ async function load(){
       for(const s of SRC)for(const sec of s.secs)for(const it of sec.items){if(!it[1])continue;
         if(!MEMB.has(it[1]))MEMB.set(it[1],[]);MEMB.get(it[1]).push({s,sec,note:it[2]});}
     }catch(e){SRC=[];}
+    // すきなものからさがす（カテゴリ。10/12）
+    try{const G=await (await fetch("categories.json")).json();CATBAD=new RegExp(G.bad||"$^");
+      CATGROUPS=G.groups.map(g=>({name:g.name,cats:g.cats.map(c=>{const x={...c,rx:new RegExp(c.re),nx:c.ng?new RegExp(c.ng,"g"):null,group:g.name};CATBY.set(c.id,x);return x;})}));}catch(e){CATGROUPS=[];}
     // 出版社がシリーズに決めている対象年齢（10/12）
     try{const A=await (await fetch("series_age.json")).json();for(const e of A.series)for(const n of e.names)SERAGE.set(nfkc(n).replace(/\s+/g," ").trim(),e);}catch(e){}
     // シリーズ（Hiro確定の34＋自動判定。10/3）
@@ -710,7 +718,7 @@ function themeChips(except){const l=THEMES.filter(t=>!except.includes(t.id));
 function renderToday(){const el=$("#today");
   const ts=[...TODAY.season.map(t=>[t,true]),...(TODAY.pick?[[TODAY.pick,false]]:[])];
   if(!ts.length&&!NEWT){el.hidden=true;return;}
-  el.innerHTML=ts.map(([t,s])=>featBlock(t,s)).join("")+newBlock()+themeChips(ts.map(([t])=>t.id));el.hidden=false;}
+  el.innerHTML=ts.map(([t,s])=>featBlock(t,s)).join("")+newBlock()+themeChips(ts.map(([t])=>t.id))+catBlock();el.hidden=false;}
 // ---------- 今月の新作（10/9）：new.json の発売日から。出たばかりの本は、図書館に入るまで少しかかる ----------
 let NEWT=null;
 const NEW_NG=/紙芝居|かみしばい|かるた|カルタ|ポケット図鑑|【POD】|検定|ガイドブック|大集合/;
@@ -815,13 +823,15 @@ function render(){
   let hits=WORKS.filter(w=>w.y&&w.y.startsWith(kq)&&okw(w));
   if(hits.length<5){const seen=new Set(hits);hits=hits.concat(WORKS.filter(w=>!seen.has(w)&&okw(w)&&nt(w.t).includes(nq)));}
   hits.sort((a,b)=>b.score-a.score||a.y.localeCompare(b.y));
-  if(!hits.length){
+  if(!hits.length&&catForQuery(q)){hits=[];}
+  if(!hits.length&&!catForQuery(q)){
     $("#status").textContent="";
     $("#view").innerHTML=`<div class="empty">「${esc(q)}」ではじまる本は見つかりませんでした。<br>書名の一部だけ、またはひらがなで入れてみてください。</div>`;
     return;
   }
   $("#status").textContent=`${hits.length.toLocaleString()}冊。おすすめに多く載っている本が上にきます`;
-  $("#view").innerHTML=`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(ttl(w))}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
+  const qc=catForQuery(q);
+  $("#view").innerHTML=(qc?`<button class="catjump" type="button" data-cat="${qc.id}"><span>「${esc(qc.name)}」の出てくる本をまとめて見る</span><b>${catWorks(qc).length.toLocaleString()}冊</b></button>`:"")+`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(ttl(w))}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
     ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}`;
 }
 
@@ -902,6 +912,39 @@ function rememberWork(w){try{const l=[w.key,...(JSON.parse(localStorage.getItem(
 function goHome(focus){$("#q").value="";shown=40;
   if(stack.length){stack=[];try{history.pushState({stack:[],d:(H().d||0)+1},"",urlOf([]));}catch(e){}}
   go(undefined);window.scrollTo(0,0);if(focus)setTimeout(()=>$("#q").focus(),50);}
+// ---------- すきなものからさがす（カテゴリ。10/12。親戚の声「ねこが好きならねこの本、はたらく車の本のように探したい」）----------
+// 書名に出てくることばで本を集める（categories.json）。キャラクター・外国語・英語版・実用書（料理・手芸など）は入れない
+let CATGROUPS=[],CATBY=new Map(),CATBAD=/$^/,catShown=60;
+function catHit(c,w){const t=nfkc(w.t);if(!c.rx.test(t))return false;if(!c.nx)return true;return c.rx.test(t.replace(c.nx,"＿"));}
+function catOk(w){return !w.en&&!w.bi&&!isForeign(w)&&!/\|c($|\|)/.test(w.key)&&!w.eds.every(isCharEd)&&!CATBAD.test(nfkc([w.t,...w.s].join(" ")));}
+function catWorks(c){if(!c.ws){c.ws=WORKS.filter(w=>catOk(w)&&catHit(c,w)).sort((a,b)=>b.score-a.score||(ageOf(b)?1:0)-(ageOf(a)?1:0)||b.eds.length-a.eds.length);}return c.ws;}
+function catsOf(w){if(!catOk(w))return [];const out=[];for(const g of CATGROUPS)for(const c of g.cats)if(catHit(c,w))out.push(c);return out;}
+const catChip=c=>`<button class="chip cat" type="button" data-cat="${c.id}">${esc(c.name)}</button>`;
+function catBlock(){if(!CATGROUPS.length)return "";
+  return `<section class="cats"><h3>すきなものからさがす</h3><p class="lead2">ねこ・はたらくくるま・おばけ…。書名に出てくる本をまとめて見られます</p>
+    ${CATGROUPS.map(g=>`<div class="cgroup"><span>${esc(g.name)}</span><div class="chips">${g.cats.map(catChip).join("")}</div></div>`).join("")}</section>`;}
+function showCat(id,keep){
+  const c=CATBY.get(id);if(!c)throw new Error("no cat");$("#searchBox").hidden=true;if(!keep)catShown=60;
+  const ws=catWorks(c),y=keep?window.scrollY:0;
+  const rel=(CATGROUPS.find(g=>g.name===c.group)||{cats:[]}).cats.filter(x=>x!==c);
+  $("#view").innerHTML=`<div class="page">
+    ${backBar()}
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div class="eyebrow">すきなものからさがす・${esc(c.group)}</div>
+      <h2 style="font:600 26px/1.4 var(--hand);margin:0;text-wrap:balance">「${esc(c.name)}」の出てくる本</h2>
+      <p class="about">書名に「${esc(c.name.split("・")[0])}」などが入っている本 ${ws.length.toLocaleString()}冊を、図書館のおすすめが多い順に。開くと、近くの図書館でさがせます。</p>
+    </div>
+    <section class="shelf"><div class="board grid">${ws.slice(0,catShown).map(w=>book(w)).join("")}</div>
+    ${ws.length>catShown?`<button class="read" type="button" data-catmore="${c.id}">もっと見る（あと${(ws.length-catShown).toLocaleString()}冊）</button>`:""}</section>
+    ${rel.length?`<div class="tchips"><span>${esc(c.group)}のほかの本</span><div class="chips">${rel.map(catChip).join("")}</div></div>`:""}
+  </div>`;
+  window.scrollTo(0,y);}
+// 検索のことばがカテゴリに当たるとき（「ねこ」「でんしゃ」など）
+function catForQuery(q){const k=nfkc(q).trim();if(k.length<2)return null;
+  for(const g of CATGROUPS)for(const c of g.cats){if(c.name.split("・").some(n=>n===k||kata(n)===kata(k)))return c;}
+  for(const g of CATGROUPS)for(const c of g.cats){const m=k.match(c.rx);if(m&&m[0]===k)return c;}
+  return null;}
+
 // ---------- 何歳向けの目安（10/12。親戚の声「何歳向けかわかりにくい」）----------
 // 1. 図書館のおすすめリストの年齢の段（いちばん幅のせまいもの）　2. 書名・シリーズ名に書いてある年齢
 // どちらも無い本には出さない（推しはかりはしない）
@@ -954,14 +997,17 @@ function show(i){
   }
   const rows=[[w.bi?"日本語だけの版":"英語の版もあります",tiers.べつの版],[w.en?"日本語版":"原書・外国語版",tiers.原書],[serLabel,tiers.つづき],[`おなじ作者（${authorName(w.a)}）`,tiers.作者],[`おなじシリーズ（${serName}）`,tiers.シリーズ]]
     .filter(([,l])=>l.some(x=>x!==w));
-  const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
+  // おなじテーマ（カテゴリ）の本：書名に「ねこ」などが入っている本を、おすすめが多い順に（10/12）
+  const cs=catsOf(w);
+  for(const c of cs.slice(0,2)){const l=catWorks(c).filter(x=>x!==w&&!seen.has(vk(x))&&!isForeign(x)).slice(0,12);l.cat=c.id;if(l.length>=3)rows.push([`「${c.name}」の出てくる本`,l]);}
+  const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:l.cat?`<button type="button" data-cat="${l.cat}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
   const col=COLBYWHO[w.a];
   const eds=w.eds.slice().sort((a,b)=>(a.yr||"").localeCompare(b.yr||"")).map(e=>`<li>${e.yr||"不明"}<span>${esc(e.p)}${e.s?"　"+esc(e.s):""}</span></li>`).join("");
   const ag=ageOf(w);
   const facts=(w.en?"原書・外国語版<br>":"")+(ag?`<span class="agey">目安 <b>${ageTxt(ag.g)}</b><small>${ag.src}</small></span><br>`:"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${w.bi==="英語版"?"英語版":esc(w.bi)+"の版"}`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
-    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p></div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
+    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${cs.length?`<p class="ctags">${cs.map(catChip).join("")}</p>`:""}</div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
@@ -977,7 +1023,7 @@ function show(i){
 }
 
 function backBar(){const prev=stack[stack.length-2];
-  const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":prev==="tnew"?"新作へもどる":prev.startsWith("t")?"特集へもどる":"まえの本へ";
+  const label=prev===undefined?"さがす画面へ":prev.startsWith("c")?"コラムへもどる":prev.startsWith("s")?"リストへもどる":prev.startsWith("a")?"作者のページへ":prev==="tnew"?"新作へもどる":prev.startsWith("t")?"特集へもどる":prev.startsWith("g")?`「${(CATBY.get(prev.slice(1))||{}).name||""}」の本へもどる`:"まえの本へ";
   return `<div class="bar"><button class="back" id="back" type="button">${label}</button><span style="flex:1"></span>
     <button class="barbtn" id="tosearch" type="button" aria-label="書名でさがす"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg></button>
     <button class="barbtn" id="tohome" type="button" aria-label="はじめの画面へ"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11 12 4l8 7"/><path d="M6 10v10h12V10"/></svg></button></div>`;}
@@ -1057,15 +1103,18 @@ function goTo(key){
   if(key.startsWith("c"))showCol(key.slice(1));
   else if(key.startsWith("a"))showWho(decodeURIComponent(key.slice(1)));
   else if(key.startsWith("t"))showTheme(key.slice(1));
+  else if(key.startsWith("g"))showCat(key.slice(1));
   else if(key.startsWith("s")){const [sid,sec]=key.slice(1).split("#");showSrc(sid,sec);}
   else show(+key.slice(1));}
 
 document.addEventListener("click",e=>{
   const j=e.target.closest("[data-jump]");
   if(j){document.getElementById(j.dataset.jump)?.scrollIntoView({block:"start"});return;}
-  const b=e.target.closest("[data-i],[data-col],[data-src],[data-who],[data-theme]");
+  const mc=e.target.closest("[data-catmore]");
+  if(mc){catShown+=60;showCat(mc.dataset.catmore,true);return;}
+  const b=e.target.closest("[data-i],[data-col],[data-src],[data-who],[data-theme],[data-cat]");
   if(b){if(!stack.length)listScroll=window.scrollY;
-    const key=b.dataset.theme?"t"+b.dataset.theme:b.dataset.who?"a"+b.dataset.who:b.dataset.col?"c"+b.dataset.col:b.dataset.src?"s"+b.dataset.src+"#"+(b.dataset.sec||""):"b"+b.dataset.i;
+    const key=b.dataset.cat?"g"+b.dataset.cat:b.dataset.theme?"t"+b.dataset.theme:b.dataset.who?"a"+b.dataset.who:b.dataset.col?"c"+b.dataset.col:b.dataset.src?"s"+b.dataset.src+"#"+(b.dataset.sec||""):"b"+b.dataset.i;
     nav(key);return;}
   if(e.target.closest("#back")){goBack();return;}
   if(e.target.closest("#home,#tohome")){goHome(false);return;}
@@ -1097,7 +1146,7 @@ window.addEventListener("popstate",e=>{if(!READY)return;
 if("scrollRestoration" in history)history.scrollRestoration="manual";
 function startFromUrl(){
   const h=(()=>{try{return decodeURIComponent(location.hash.slice(1));}catch(e){return "";}})();
-  if(/^[bacst]./.test(h)){stack=[h];try{history.replaceState({stack:stack.slice(),d:0},"");}catch(e){}go(h);}
+  if(/^[bacstg]./.test(h)){stack=[h];try{history.replaceState({stack:stack.slice(),d:0},"");}catch(e){}go(h);}
   else{try{history.replaceState({stack:[],d:0},"",urlOf([]));}catch(e){}}}
 $("#home").addEventListener("keydown",e=>{if(e.key==="Enter"){goHome(false);}});
 let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;tm=setTimeout(render,120);});
