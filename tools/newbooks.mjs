@@ -20,7 +20,9 @@ const NO_RK = !MOCK && (!APP || !KEY);
 if (NO_RK) console.log("RAKUTEN_APP_ID・RAKUTEN_ACCESS_KEY が Secrets にないので、新刊さがしは休み、いまある本の openBD での確かめだけします");
 
 const GENRES = ["001003003", "001003005"]; // 絵本・しかけ絵本
-const BACK_DAYS = 45, AHEAD_DAYS = 100, MAX_PAGES = 40;
+// 楽天では「もう出た本（発売日が35日前〜今日）」だけを見つける。発売日は楽天のものを保存できないので、
+// openBD に発売日があればそれを、なければ「絵本だなが見つけた日」（seen）を使う（10/11）
+const BACK_DAYS = 35, AHEAD_DAYS = 0, MAX_PAGES = 40;
 // 自費出版・共同出版の版元（図書館にはまず入らない）。10/10 初回の自動取得で見つかったものを足した
 const NG_PUB = /文芸社|新風舎|幻冬舎メディアコンサルティング|幻冬舎ルネッサンス|日本文学館|みらいパブリッシング|東京図書出版|リフレ出版|パレード|丸善プラネット|三宝出版|風詠社|ブイツーソリューション|日本橋出版|22世紀アート|銀河書籍|つむぎ書房|日本障害者リハビリテーション協会|ふきのとう文庫|石田製本/;
 // 絵本でないもの（シール・ドリル・パズル・おもちゃつき・料理本など）
@@ -83,18 +85,21 @@ async function openbd(isbns) {
   return out;
 }
 const pdOf = s => { const d = String(s || "").replace(/[^0-9]/g, ""); return d.length >= 8 ? `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}` : ""; };
+// 失敗したときに GitHub の画面（注釈）で理由が読めるように
+process.on("uncaughtException", e => { console.log("::error::" + String(e.message || e).replace(/\n/g, " ")); process.exit(1); });
+process.on("unhandledRejection", e => { console.log("::error::" + String((e && e.message) || e).replace(/\n/g, " ")); process.exit(1); });
 // openBD の書誌から、絵本だなの形の記録をつくる（発売日が日まで決まっていないものは、決まってから）
 function fromOpenbd(d) {
   const s = d.summary || {}, o = d.onix || {}, dd = o.DescriptiveDetail || {}, te = ((dd.TitleDetail || {}).TitleElement) || {};
   const pubs = [].concat((o.PublishingDetail || {}).PublishingDate || []);
-  const pd = pdOf(s.pubdate) || pdOf((pubs.find(x => x.PublishingDateRole === "01") || pubs[0] || {}).Date);
+  const pd = pdOf(s.pubdate) || pdOf((pubs.find(x => /^(01|11|09)$/.test(x.PublishingDateRole)) || {}).Date);
   const title = (s.title || (te.TitleText || {}).content || "").trim();
-  if (!pd || !title || !s.isbn) return null;
+  if (!title || !s.isbn) return null;
   const sub = ((te.Subtitle || {}).content || "").trim();
   const c0 = [].concat(dd.Contributor || [])[0];
   const who = ((c0 && (c0.PersonName || {}).content) || (s.author || "").split(/[／/]/)[0] || "").trim();
   return { t: (sub && !title.includes(sub) ? title + " " + sub : title).normalize("NFC"), y: ((te.TitleText || {}).collationkey || "").replace(/\s/g, "").normalize("NFC"),
-    c: who.normalize("NFC"), p: (s.publisher || "").normalize("NFC").replace(/^株式会社\s*/, ""), yr: pd.slice(0, 4), i: isbn13(s.isbn), s: (s.series || "").normalize("NFC"), k: "N", pd };
+    c: who.normalize("NFC"), p: (s.publisher || "").normalize("NFC").replace(/^株式会社\s*/, ""), yr: (pd || TODAY).slice(0, 4), i: isbn13(s.isbn), s: (s.series || "").normalize("NFC"), k: "N", ...(pd ? { pd } : {}) };
 }
 
 // 1. 楽天で「新しく出る本のISBN」を集める（楽天の書名・日付は保存しない）
@@ -117,27 +122,36 @@ if (!NO_RK) for (const g of GENRES) {
 }
 
 // 2. いまある本＋新しく見つけた本を、openBD で引きなおす（前の記録も、毎回 openBD の書誌で置きかえる）
-const before = new Set(N.records.map(r => isbn13(r.i)));
-const want = [...new Set([...before, ...Object.keys(N.dates), ...FOUND])].filter(Boolean);
+// 10/11 までの new.json は楽天の発売日をもっていたので、そのときは前の日付を使わない（seen は今日にする）
+const OPENBD_ONLY = N.src === "openbd";
+const SEEN0 = OPENBD_ONLY ? (N.seen || {}) : {};
+for (const r of OPENBD_ONLY ? N.records : []) if (r.seen) SEEN0[isbn13(r.i)] = r.seen;
+const before = new Set([...N.records.map(r => isbn13(r.i)), ...Object.keys(N.dates || {}), ...Object.keys(N.seen || {})]);
+const want = [...new Set([...before, ...FOUND])].filter(Boolean);
 const OB = await openbd(want);
-const records = [], dates = {}, out = [];
-let missing = 0;
+const records = [], dates = {}, seenIdx = {}, out = [];
+let missing = 0, hitBefore = 0;
 for (const i of want) {
   const d = OB.get(i), r = d && fromOpenbd(d);
   if (!r) { missing++; continue; }
+  if (before.has(i)) hitBefore++;
   if (NG_PUB.test(r.p) || NG_T.test(nfkc(r.t))) continue;
-  if (INDEX.has(i)) { dates[i] = r.pd; continue; }
+  // 楽天の日付をもっていた前の記録（10/11 の切りかえのとき）は、いま出たばかりの本か、openBD に発売日のある本だけ残す
+  if (!OPENBD_ONLY && !FOUND.has(i) && !r.pd) continue;
+  const seen = SEEN0[i] || TODAY;
+  if (INDEX.has(i)) { if (r.pd) dates[i] = r.pd; else seenIdx[i] = seen; continue; }
+  r.seen = seen;
   if (isChar(r)) r.ch = 1;
   records.push(r);
   if (!before.has(i)) out.push(r);
 }
 records.sort((a, b) => a.i.localeCompare(b.i));
 // openBD がうまく返さなかったとき（通信の不調など）に、前の記録を消してしまわないように
-const keptBefore = records.filter(r => before.has(r.i)).length + Object.keys(dates).filter(i => before.has(i)).length;
-if (!MOCK && before.size > 20 && keptBefore < before.size * 0.3) throw new Error(`openBD で前の本が ${keptBefore}/${before.size} しか見つからない。書きこまずに止めます`);
+if (!MOCK && before.size > 20 && hitBefore < before.size * 0.3) throw new Error(`openBD で前の本が ${hitBefore}/${before.size} しか見つからない。書きこまずに止めます`);
 // 発売日だけの控えは半年で消す（本そのもの＝records は残す）
 const CUT = day(new Date(jst - 183 * 864e5));
 for (const [i, d] of Object.entries(dates)) if (d < CUT) delete dates[i];
+for (const [i, d] of Object.entries(seenIdx)) if (d < CUT) delete seenIdx[i];
 
 // 3. isbn_plus.json：openBD に載っていて、書名が合うISBNだけ残す
 const nt = t => nfkc(t).replace(/[\s　・、。!！?？「」『』()（）\-ー〜~:：]/g, "").toLowerCase();
@@ -151,11 +165,11 @@ for (const [k, v] of Object.entries(PLUS)) {
 }
 
 if (!MOCK && plusKept < Object.keys(PLUS).length * 0.3) throw new Error(`isbn_plus で openBD に合うのが ${plusKept}/${Object.keys(PLUS).length} しかない。書きこまずに止めます`);
-const NJ = { _説明: "今月の新作のための新刊。楽天ブックスの「絵本」「しかけ絵本」ジャンルで新しく出る本を見つけ、書誌は openBD から取ったもの（毎週月曜に自動で更新）。records＝索引にない本、dates＝索引にある本の発売日", at: TODAY, records, dates };
+const NJ = { _説明: "今月の新作のための新刊。楽天ブックスの「絵本」「しかけ絵本」ジャンルで出たばかりの本を見つけ、書誌は openBD から取ったもの（毎週月曜に自動で更新）。records＝索引にない本（pd＝openBDの発売日、seen＝絵本だなが見つけた日）、dates＝索引にある本の openBD の発売日、seen＝索引にある本で発売日のないものを見つけた日", src: "openbd", at: TODAY, records, dates, seen: seenIdx };
 if (!DRY) {
   fs.writeFileSync("new.json", JSON.stringify(NJ));
   fs.writeFileSync("isbn_plus.json", JSON.stringify(PLUS2, null, 1));
 }
 console.log(JSON.stringify({ today: TODAY, range: [FROM, TO], rakutenSeen: seen, found: FOUND.size, asked: want.length, notInOpenbd: missing,
-  records: records.length, dates: Object.keys(dates).length, added: out.length, isbnPlus: { kept: plusKept, dropped: plusDropped },
-  sample: out.slice(0, 8).map(r => `${r.pd} ${r.t}｜${r.p}${r.ch ? "（キャラクター）" : ""}`) }, null, 1));
+  records: records.length, withPd: records.filter(r => r.pd).length, dates: Object.keys(dates).length, seen: Object.keys(seenIdx).length, added: out.length, isbnPlus: { kept: plusKept, dropped: plusDropped },
+  sample: out.slice(0, 8).map(r => `${r.pd || "（" + r.seen + " に見つけた）"} ${r.t}｜${r.p}${r.ch ? "（キャラクター）" : ""}`) }, null, 1));

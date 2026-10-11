@@ -256,7 +256,7 @@ footer a{color:inherit}
   <footer>
     約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.37（10/10 楽天アフィリエイトの準備・新刊の書誌を openBD に）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.38（10/11 新刊の発売日は openBD のものだけ）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
       <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
@@ -560,7 +560,8 @@ async function load(){
     recs.forEach(fixPub);
     // 新刊（new.json・10/9）：索引にない新しい本を足し、索引にある本には発売日（pd）をつける。「今月の新作」の本だなに使う
     try{const N=await (await fetch("new.json")).json(),nf=x=>typeof x==="string"?x.normalize("NFC"):x;
-      const D=N.dates||{};for(const r of recs){const i=isbn13(r.i);if(i&&D[i])r.pd=D[i];}
+      // pd＝発売日（openBD）、seen＝絵本だなが見つけた日（発売日がわからない本。10/11）
+      const D=N.dates||{},SN=N.seen||{};for(const r of recs){const i=isbn13(r.i);if(!i)continue;if(D[i])r.pd=D[i];else if(SN[i])r.seen=SN[i];}
       const have=new Set(recs.map(r=>isbn13(r.i)).filter(Boolean));
       for(const r of N.records||[]){const i=isbn13(r.i);if(!i||have.has(i)||EXCLUDE_PUB.test(r.p))continue;have.add(i);
         const x={};for(const k in r)x[k]=nf(r[k]);fixPub(x);recs.push(x);}}catch(e){}
@@ -591,7 +592,7 @@ async function load(){
     for(const w of WORKS)if(w.bi==="英語版"){w.L=0;w.A=[];}
     // キャラクターもの（テレビ・映画・おもちゃ発）は、いま書店で買える本（openBDに載っている本）だけ残す。賞・リストに載っている本は残す（10/9）
     try{const S=new Set((await (await fetch("instock.json")).json()).isbn9);
-      WORKS=WORKS.filter(w=>w.L||w.A.length||!w.eds.every(isCharEd)||w.eds.some(e=>e.pd)||w.eds.some(e=>{const i=isbn13(e.i);return i&&S.has(i.slice(3,12));}));}catch(e){}
+      WORKS=WORKS.filter(w=>w.L||w.A.length||!w.eds.every(isCharEd)||w.eds.some(e=>e.pd||e.seen)||w.eds.some(e=>{const i=isbn13(e.i);return i&&S.has(i.slice(3,12));}));}catch(e){}
     // 作者の表示名：「姓, 名」の形を優先し、いちばん多い書き方
     for(const n of WHONAME.values()){let best=[...n.forms.keys()][0]||"",bs=-Infinity;for(const [f,k] of n.forms){const sc=k+(/,/.test(f)?1e6:0)-(/[／\/]/.test(f)?2e6:0);if(sc>bs){bs=sc;best=f;}}n.name=slashName(nfkc(best)," ").trim();delete n.forms;}
     for(const [r,nm] of NAMEOF)WHONAME.get(r).name=nm;
@@ -713,7 +714,7 @@ const NEW_NG=/紙芝居|かみしばい|かるた|カルタ|ポケット図鑑|�
 function buildNew(){const now=new Date(),ym=d=>d.toISOString().slice(0,7);
   const today=new Date(now.getTime()-now.getTimezoneOffset()*6e4).toISOString().slice(0,10);
   const ok=WORKS.filter(w=>!w.en&&!w.bi&&!isForeign(w)&&!/\|c($|\|)/.test(w.key)&&!w.eds.every(isCharEd)&&!w.eds.some(e=>e.ch)&&!NEW_NG.test(nfkc(w.t)));
-  for(const w of ok)w.pd=w.eds.map(e=>e.pd||"").sort().pop();
+  for(const w of ok){w.pd=w.eds.map(e=>e.pd||e.seen||"").sort().pop();w.pdReal=w.eds.some(e=>e.pd===w.pd);}
   // 新装版・改訂版や、前に出た本の新しい版は入れない（はじめて本になったのが今年か去年の本だけ）
   const out=ok.filter(w=>w.pd&&w.pd<=today&&(w.yr==="9999"||+w.yr>=+w.pd.slice(0,4)-1)&&!/新装版|改訂版|復刻/.test(nfkc(w.t))).sort((a,b)=>b.pd.localeCompare(a.pd)||b.score-a.score);
   // 今月に出た本。月のはじめで少ないときは、先月の本も入れる
@@ -721,9 +722,10 @@ function buildNew(){const now=new Date(),ym=d=>d.toISOString().slice(0,7);
   let l=out.filter(w=>w.pd.startsWith(m0));if(l.length<12)l=out.filter(w=>w.pd.startsWith(m0)||w.pd.startsWith(m1));
   if(l.length<4){NEWT=null;return;}
   const mon=+m0.slice(5),wide=l.some(w=>!w.pd.startsWith(m0));
-  NEWT={id:"new",isNew:true,name:"今月の新作",label:wide?`${mon===1?12:mon-1}月・${mon}月に出た本`:`${mon}月に出た本`,
-    lead:"出たばかりの絵本です。図書館に入るまで、少し時間がかかることがあります。",works:l};}
-const newBook=w=>book(w).replace(/<span class="y">[^<]*<\/span><\/button>$/,`<span class="y">${+w.pd.slice(5,7)}/${+w.pd.slice(8,10)} 発売</span></button>`);
+  NEWT={id:"new",isNew:true,name:"今月の新作",label:wide?`${mon===1?12:mon-1}月・${mon}月の新しい本`:`${mon}月の新しい本`,
+    lead:"出たばかりの絵本です（出版社の書誌データに載った新刊から）。図書館に入るまで、少し時間がかかることがあります。",works:l};}
+// 発売日がわかる本だけ「10/9 発売」と出す（わからない本は年だけ）
+const newBook=w=>w.pdReal?book(w).replace(/<span class="y">[^<]*<\/span><\/button>$/,`<span class="y">${+w.pd.slice(5,7)}/${+w.pd.slice(8,10)} 発売</span></button>`):book(w);
 function newBlock(){const t=NEWT;if(!t)return "";
   return `<section class="shelf feat new"><div class="eyebrow">${esc(t.label)}</div><h3>${esc(t.name)}</h3><p class="lead2">${esc(t.lead)}</p>
     <div class="board">${t.works.slice(0,10).map(newBook).join("")}</div>
