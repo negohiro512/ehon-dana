@@ -48,6 +48,12 @@ const CX = compile(I.concepts);
 const CXBY = new Map(CX.map(c => [c.id, c]));
 const matchAll = makeMatcher(CX);
 const match1 = c => makeMatcher([c]);
+// 確かめられない本を入れてよいかの目じるし：なかま（up をたどる）のことば＋ ctx（interests.json）
+const RAWBY = new Map(I.concepts.map(c => [c.id, c]));
+const ctxRx = c => { const seen = new Set(), parts = [], st = [c.id];
+  while (st.length) { const id = st.pop(); if (seen.has(id)) continue; seen.add(id); const x = CXBY.get(id), r = RAWBY.get(id); if (!x) continue;
+    if (id !== c.id) parts.push(x.rx); for (const w of r.ctx || []) parts.push(w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")); st.push(...x.up); }
+  return parts.length ? new RegExp(parts.join("|")) : null; };
 const ageOfText = s => {
   const t = nfkc(s).replace(/[〇]/g, "0").replace(/[〜～]/g, "~");
   let m;
@@ -66,7 +72,7 @@ const setAge = (ref, a) => { if (a && !AGE[ref]) AGE[ref] = a; };
 // ========== A. NDL ==========
 const CACHE_F = "work/ndl_cache.json";
 const CACHE = fs.existsSync(CACHE_F) ? JSON.parse(fs.readFileSync(CACHE_F, "utf8")) : {};
-const hash = c => crypto.createHash("md5").update("p2/" + c.rx + "/" + c.nx + "/" + c.words.join(",")).digest("hex").slice(0, 10);
+const hash = c => crypto.createHash("md5").update("p3/" + JSON.stringify(RAWBY.get(c.id).ctx || []) + c.up.join() + c.rx + "/" + c.nx + "/" + c.words.join(",")).digest("hex").slice(0, 10);
 // NDL の「description」で引くことば：カタカナにそろえて重ならないように（NDLはひらがな・カタカナを同じに扱う）
 const ndlForms = c => [...new Set(c.words.filter(w => !w.startsWith("/") && [...w].length >= 1).map(w => toKata(w)))].filter(w => w.length >= 2 || /[一-龯]/.test(w));
 const xmlText = s => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
@@ -100,7 +106,7 @@ function toIndex(r) {
 async function ndlConcept(c) {
   const h = hash(c), old = CACHE[c.id];
   if (old && old.h === h && (Date.now() - Date.parse(old.d)) < REFRESH_DAYS * 864e5) return old;
-  const m1 = match1(c), hits = new Map(); let n = 0, cut = 0, miss = 0, unv = 0;
+  const m1 = match1(c), CTX = ctxRx(c), hits = new Map(); let n = 0, cut = 0, miss = 0, unv = 0;
   for (const f of ndlForms(c)) {
     if (Date.now() > T_END) return null;
     for (let start = 1; start <= 500; start += 500) {
@@ -111,7 +117,7 @@ async function ndlConcept(c) {
         const inHead = m1(r.head).get(c.id) || 0, inBody = m1(r.body).get(c.id) || 0;
         const ix = toIndex(r); if (!ix) { miss++; continue; }    // 索引にない本（研究報告・洋書など）
         // 書誌の文字にことばが見つからない本：NDL の内容紹介（書誌の外）に当たっている。カタカナ・漢字3文字以上で引いたときだけ、よわいとして入れる
-        if (!inHead && !inBody) { if ([...f].length >= 3 && !/^[ぁ-ゖー]+$/.test(f) && !(c.nx && new RegExp(c.nx).test(r.head + r.body))) { unv++; const ref = refOf(ix); labOf.set(ref, (ix.t || "") + "｜" + (ix.p || "")); if (!hits.has(ref)) hits.set(ref, 1); } continue; }
+        if (!inHead && !inBody) { if ([...f].length >= 3 && !/^[ぁ-ゖー]+$/.test(f) && !(c.nx && new RegExp(c.nx).test(r.head + r.body)) && CTX && CTX.test(r.head + "\n" + r.body)) { unv++; const ref = refOf(ix); labOf.set(ref, (ix.t || "") + "｜" + (ix.p || "")); if (!hits.has(ref)) hits.set(ref, 1); } continue; }
         const ref = refOf(ix); labOf.set(ref, (ix.t || "") + "｜" + (ix.p || ""));
         const st = inHead ? 3 : (inBody >= 2 || (m1(r.ab).get(c.id) || 0)) ? 2 : 1;
         hits.set(ref, Math.max(hits.get(ref) || 0, st));
