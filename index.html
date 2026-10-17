@@ -992,7 +992,7 @@ function sukiConcept(q){if(!KWD||!KWD.cx.length)return null;const k=sukiWord(q),
   for(const c of KWD.cx)if(c.keys.has(kk))return c;
   for(const c of KWD.cx){const t=c.nx?k.replace(c.nx,"＿"):k,m=t.match(c.rx);if(m&&m[0]===k)return c;}
   return null;}
-const sukiOk=w=>catOk(w)&&!/点訳|点字|アニメ版/.test(w.t)&&!(w._form==="A"&&!w.L&&!w.A.length);
+const sukiOk=w=>catOk(w)&&!/点訳|点字/.test(w.t)&&!w.eds.some(e=>/アニメ版|アニメえほん/.test(nfkc(e.t)))&&!(w._form==="A"&&!w.L&&!w.A.length);
 function titleHit(c,w){const t=nfkc([w.t,...w.s].join(" "));const x=c.nx?t.replace(c.nx,"＿"):t;return c.rx.test(x);}
 // すきなもの1つ分の本：[書名に出てくる本, 内容紹介に出てくる本（つよい→よわい）]
 function sukiWorks(c){if(c._ws)return c._ws;
@@ -1090,7 +1090,7 @@ function ageOf(w){if(w._age!==undefined)return w._age;let best=null;
     if((m=t.match(/(?<![0-9])([0-6])\s*[・.]\s*([0-6])(?:\s*[・.]\s*([0-6]))?\s*[.]?\s*(?:歳|才|さい)/)))g=[+m[1],+(m[3]||m[2])];
     else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(半)?\s*(?:から|ごろ|頃|~|〜)/)))g=[+m[1]+(m[2]?0.5:0),null];
     else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(?:の|児|向)/)))g=[+m[1],+m[1]];
-    else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2/.test(t))g=[0,2];
+    else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2|ボードブック|ベビー(?:ブック|えほん|絵本)|あかちゃんえほん|赤ちゃん絵本|てのひらえほん/.test(t))g=[0,2];
     if(g&&g[0]<7&&(g[1]==null||g[1]>=g[0]))best={g,src:"書名・シリーズ名から"};}
   // 3. 出版社がシリーズに決めている対象年齢（series_age.json）。書名に年齢が書いてある本より先に使う
   if(!best||best.src[0]==="書"){let sb=null;
