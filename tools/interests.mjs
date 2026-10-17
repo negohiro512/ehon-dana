@@ -66,7 +66,7 @@ const setAge = (ref, a) => { if (a && !AGE[ref]) AGE[ref] = a; };
 // ========== A. NDL ==========
 const CACHE_F = "work/ndl_cache.json";
 const CACHE = fs.existsSync(CACHE_F) ? JSON.parse(fs.readFileSync(CACHE_F, "utf8")) : {};
-const hash = c => crypto.createHash("md5").update(c.rx + "/" + c.nx + "/" + c.words.join(",")).digest("hex").slice(0, 10);
+const hash = c => crypto.createHash("md5").update("p2/" + c.rx + "/" + c.nx + "/" + c.words.join(",")).digest("hex").slice(0, 10);
 // NDL の「description」で引くことば：カタカナにそろえて重ならないように（NDLはひらがな・カタカナを同じに扱う）
 const ndlForms = c => [...new Set(c.words.filter(w => !w.startsWith("/") && [...w].length >= 1).map(w => toKata(w)))].filter(w => w.length >= 2 || /[一-龯]/.test(w));
 const xmlText = s => s.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
@@ -87,8 +87,9 @@ function parseRec(x) {
   const title = g(/<dcterms:title>([^<]*)</g)[0] || "";
   const pub = g(/<dcterms:publisher>[\s\S]*?<foaf:name>([^<]*)</g)[0] || "";
   const head = [title, ...g(/<dcndl:alternative>[\s\S]*?<rdf:value>([^<]*)</g), ...g(/<dcndl:seriesTitle>[\s\S]*?<rdf:value>([^<]*)</g), ...g(/<rdfs:label>([^<]*)</g)].join("\n");
-  const ab = g(/<dcterms:abstract>([^<]*)</g).join("\n");
-  const body = [ab, ...g(/<dcterms:tableOfContents>([^<]*)</g), ...g(/<dcterms:description>([^<]*)</g).filter(s => !ADMIN.test(s))].join("\n");
+  const ab = g(/<dcterms:abstract[^>]*>([^<]*)</g).join("\n");
+  // 読み（dcndl:transcription）は外す：「シャチョウ」のように読みが似ているだけの本が混じるため。ほかの文字は全部見る（内容細目・注記など）
+  const body = xmlText(x.replace(/<dcndl:transcription[^>]*>[^<]*<\/dcndl:transcription>/g, " ").replace(/<[^>]+>/g, "\n")).split("\n").map(s => s.trim()).filter(s => s && !ADMIN.test(s)).join("\n");
   return { isbns, title, pub, head: nfkc(head), body: nfkc(body), ab: nfkc(ab) };
 }
 // NDLの1件 → 索引の本（ISBN → 書名＋出版社）
@@ -99,27 +100,28 @@ function toIndex(r) {
 async function ndlConcept(c) {
   const h = hash(c), old = CACHE[c.id];
   if (old && old.h === h && (Date.now() - Date.parse(old.d)) < REFRESH_DAYS * 864e5) return old;
-  const m1 = match1(c), hits = new Map(); let n = 0, cut = 0, miss = 0;
+  const m1 = match1(c), hits = new Map(); let n = 0, cut = 0, miss = 0, unv = 0;
   for (const f of ndlForms(c)) {
     if (Date.now() > T_END) return null;
-    for (let start = 1; start <= 500; start += 200) {
-      const x = await sru(`description="${f}" AND ndlc="Y1"`, start, 200);
+    for (let start = 1; start <= 500; start += 500) {
+      const x = await sru(`description="${f}" AND ndlc="Y1"`, start, 500);
       const num = +((x.match(/<numberOfRecords>(\d+)/) || [])[1] || 0);
       for (const part of x.split(/<record>/).slice(1)) {
         n++; const r = parseRec(part);
         const inHead = m1(r.head).get(c.id) || 0, inBody = m1(r.body).get(c.id) || 0;
-        if (!inHead && !inBody) continue;                       // 読みが似ているだけ（シャチョウ など）
         const ix = toIndex(r); if (!ix) { miss++; continue; }    // 索引にない本（研究報告・洋書など）
+        // 書誌の文字にことばが見つからない本：NDL の内容紹介（書誌の外）に当たっている。カタカナ・漢字3文字以上で引いたときだけ、よわいとして入れる
+        if (!inHead && !inBody) { if ([...f].length >= 3 && !/^[ぁ-ゖー]+$/.test(f) && !(c.nx && new RegExp(c.nx).test(r.head + r.body))) { unv++; const ref = refOf(ix); labOf.set(ref, (ix.t || "") + "｜" + (ix.p || "")); if (!hits.has(ref)) hits.set(ref, 1); } continue; }
         const ref = refOf(ix); labOf.set(ref, (ix.t || "") + "｜" + (ix.p || ""));
         const st = inHead ? 3 : (inBody >= 2 || (m1(r.ab).get(c.id) || 0)) ? 2 : 1;
         hits.set(ref, Math.max(hits.get(ref) || 0, st));
         const a = ageOfText(r.body); if (a) setAge(ref, a);
       }
-      if (num > 500 && start === 401) cut++;
-      if (start + 200 > num) break;
+      if (num > 500) cut++;
+      break;
     }
   }
-  const res = { h, d: new Date().toISOString().slice(0, 10), n, cut, miss, hits: [...hits].sort((a, b) => b[1] - a[1]), age: Object.fromEntries([...hits.keys()].filter(r => AGE[r]).map(r => [r, AGE[r]])) };
+  const res = { h, unv, d: new Date().toISOString().slice(0, 10), n, cut, miss, hits: [...hits].sort((a, b) => b[1] - a[1]), age: Object.fromEntries([...hits.keys()].filter(r => AGE[r]).map(r => [r, AGE[r]])) };
   CACHE[c.id] = res;
   fs.mkdirSync("work", { recursive: true }); fs.writeFileSync(CACHE_F, JSON.stringify(CACHE));
   return res;
