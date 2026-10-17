@@ -4,7 +4,7 @@ const KATA = /^[ァ-ヴー・]+$/, HIRA = /^[ぁ-ゖー]+$/;
 const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const hira = s => s.replace(/[ァ-ヶ]/g, c => String.fromCharCode(c.charCodeAt(0) - 0x60));
 // ひらがなの前後：ほかのひらがなにつながっていないこと（助詞・「さん」「くん」「ちゃん」「たち」は可）
-const H_BEFORE = "(?:(?<![ぁ-ゖ])|(?<=[のとがはもをにへやでよ]))";
+const H_BEFORE = "(?:(?<![ぁ-ゖ])|(?<=[のとがはもをにへやで]))";
 const H_AFTER = "(?=$|[^ぁ-ゖ]|[のとがはもをにへやでさくちたよねだぁぃぅぇぉ])";
 
 export function formRx(f, pre) {

@@ -23,10 +23,11 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-      - run: node tools/interests.mjs
+      - run: node tools/interests.mjs --max-min=320
+        timeout-minutes: 340
       - name: commit
         run: |
           git config user.name "ehon-interests"
           git config user.email "actions@users.noreply.github.com"
-          git add kw.json work/interests_report.md
+          git add kw.json work/interests_report.md work/ndl_cache.json
           git diff --cached --quiet || (git commit -m "すきなもの索引：$(date +%Y-%m-%d)" && git pull --rebase && git push)
