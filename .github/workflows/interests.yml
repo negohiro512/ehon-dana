@@ -1,0 +1,33 @@
+# すきなものさがしの索引（kw.json）を openBD からつくりなおす。毎週月曜の朝（日本時間 5:58。新刊の後・点検の前）と、辞書（interests.json）を変えたとき
+name: interests-index
+on:
+  schedule:
+    - cron: "58 20 * * 0"
+  workflow_dispatch:
+  push:
+    paths:
+      - "interests.json"
+      - "tools/interests.mjs"
+      - "tools/interests_compile.mjs"
+      - ".github/workflows/interests.yml"
+permissions:
+  contents: write
+concurrency:
+  group: interests-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: node tools/interests.mjs --max-min=320
+        timeout-minutes: 340
+      - name: commit
+        run: |
+          git config user.name "ehon-interests"
+          git config user.email "actions@users.noreply.github.com"
+          git add kw.json work/interests_report.md work/ndl_cache.json
+          git diff --cached --quiet || (git commit -m "すきなもの索引：$(date +%Y-%m-%d)" && git pull --rebase && git push)

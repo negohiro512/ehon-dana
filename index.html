@@ -222,6 +222,12 @@ footer details{margin-top:8px}footer summary{cursor:pointer;color:var(--ink,inhe
 .cgroup{display:flex;flex-direction:column;gap:4px}.cgroup>span{font-size:12px;color:var(--sub);font-weight:500}
 .chip.cat{background:var(--card);border-color:var(--line)}
 .ctags{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 0}.ctags .chip{font-size:12px;padding:4px 10px}
+.agechips{display:flex;flex-direction:column;gap:6px}.agechips>span{font-size:13px;color:var(--sub);font-weight:700}
+.chip.age{padding:6px 12px}.chip.age.on{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.skhead{display:flex;flex-direction:column;gap:6px}.skhead h2{font:600 26px/1.4 var(--hand);margin:0;text-wrap:balance}
+.shelf.sk h3 small{font:500 13px var(--round);color:var(--sub);margin-left:4px}.shelf.sk .sub{margin:2px 0 0;font-size:13px;color:var(--sub)}
+.book.dim{opacity:.5}.sknote{font-size:12px;color:var(--sub);margin-top:8px}.skbusy{font-size:13px;color:var(--sub)}
+.catjump small{display:block;font-size:12px;color:var(--sub);margin-top:2px}.catjump.ghostj{background:none;border:1.5px dashed var(--line);font-size:14px;padding:8px 14px}
 .catjump{display:flex;justify-content:space-between;align-items:center;gap:10px;width:100%;margin:0 0 10px;padding:12px 16px;border:0;border-radius:14px;background:var(--leaf-soft);color:inherit;font:inherit;font-size:15px;text-align:left;cursor:pointer}.catjump b{white-space:nowrap;color:var(--leaf)}
 footer{font-size:12px;color:var(--sub);line-height:1.8;border-top:1.5px solid var(--line);padding-top:14px}
 footer a{color:inherit}
@@ -243,7 +249,7 @@ footer a{color:inherit}
     <label for="q">いま、くりかえし読んでいる本は？</label>
     <div class="field">
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 21 21"/></svg>
-      <input id="q" type="search" autocomplete="off" enterkeyhint="search" placeholder="書名のはじめ（ひらがなでOK）">
+      <input id="q" type="search" autocomplete="off" enterkeyhint="search" placeholder="書名のはじめ、またはすきなもの（シャチなど）">
       <button id="clear" type="button" aria-label="入力を消す" hidden>×</button>
     </div>
     <div class="chips" id="chips" aria-label="ためしに探す">
@@ -262,7 +268,7 @@ footer a{color:inherit}
   <footer>
     約10万冊の本を、国立国会図書館の書誌データから集めています。新しく出た本は、出版社の書誌データ（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a>）から毎週足しています。「おすすめ」は全国の図書館・自治体がつくった選書リストに載っている数、黄色の印は絵本の賞です（あわせて104本）。<br>
     テレビ・映画・おもちゃのキャラクターの本は、いま書店で買えるもの（<a href="https://openbd.jp/" target="_blank" rel="noopener">openBD</a> に載っているもの）だけを入れています。<br>
-    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.41（10/12 すきなものからさがす）
+    <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.5（10/17 すきなものを内容紹介からも）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
       <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
@@ -646,6 +652,7 @@ async function load(){
     READY=true;
     render();
     startFromUrl();
+    loadKw();
   }catch(e){$("#status").textContent="本だなを開けませんでした。ページを開きなおしてください（"+e.message+"）";}
 }
 
@@ -799,6 +806,7 @@ async function runAudit(o={}){
       if(Math.max(sim(ob,w.t),sim(obm,ref)*0.9)<0.3){add("表紙のISBNの書名がちがう",ttl(w)+"｜"+ob+"｜"+i);R.badIsbn.push(i);}}}
   return R;}
 
+let TITLEMODE=null;
 function render(){
   const q=$("#q").value.trim();$("#clear").hidden=!q;
   if(!READY)return;
@@ -819,20 +827,26 @@ function render(){
     return;
   }
   const kq=kata(q),nq=nt(q);
+  // すきなもの（シャチ・でんしゃ…）のことばなら、書名より先に「〇〇が出てくる本」を出す（10/17）
+  const sk=KWD&&KWD.ready&&TITLEMODE!==q?sukiConcept(q):null;
+  if(sk){const r=sukiHtml(q);$("#status").textContent="";
+    $("#view").innerHTML=r.html.replace('<div class="skhead">',`<button class="catjump ghostj" type="button" data-titlemode="1"><span>書名で探す（「${esc(q)}」ではじまる本）</span><b>→</b></button><div class="skhead">`);return;}
   const okw=w=>!isForeign(w)&&!/点訳|点字/.test(w.t);
   let hits=WORKS.filter(w=>w.y&&w.y.startsWith(kq)&&okw(w));
   if(hits.length<5){const seen=new Set(hits);hits=hits.concat(WORKS.filter(w=>!seen.has(w)&&okw(w)&&nt(w.t).includes(nq)));}
   hits.sort((a,b)=>b.score-a.score||a.y.localeCompare(b.y));
   if(!hits.length&&catForQuery(q)){hits=[];}
+  // 書名でないことば（ダンゴムシ など）：内容紹介から探す入口（10/17）
+  const sw=sukiWord(q),skj=KWD&&KWD.ready&&[...sw].length>=2&&[...sw].length<=12&&!/[A-Za-z0-9]/.test(sw)?`<button class="catjump" type="button" data-suki="${esc(q)}"><span>「${esc(sw)}」が出てくる本をさがす<small>書名と内容紹介から</small></span><b>→</b></button>`:"";
   if(!hits.length&&!catForQuery(q)){
     $("#status").textContent="";
-    $("#view").innerHTML=`<div class="empty">「${esc(q)}」ではじまる本は見つかりませんでした。<br>書名の一部だけ、またはひらがなで入れてみてください。</div>`;
+    $("#view").innerHTML=skj+`<div class="empty">「${esc(q)}」ではじまる書名の本は見つかりませんでした。<br>書名の一部だけ、またはひらがなで入れてみてください。</div>`;
     return;
   }
   $("#status").textContent=`${hits.length.toLocaleString()}冊。おすすめに多く載っている本が上にきます`;
   const qc=catForQuery(q);
-  $("#view").innerHTML=(qc?`<button class="catjump" type="button" data-cat="${qc.id}"><span>「${esc(qc.name)}」の出てくる本をまとめて見る</span><b>${catWorks(qc).length.toLocaleString()}冊</b></button>`:"")+`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(ttl(w))}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
-    ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}`;
+  $("#view").innerHTML=(qc?`<button class="catjump" type="button" data-cat="${qc.id}"><span>「${esc(qc.name)}」の出てくる本をまとめて見る</span><b>${catWorks(qc).length.toLocaleString()}冊</b></button>`:hits.length<5?skj:"")+`<ul class="list">${hits.slice(0,shown).map(w=>`<li><button class="row" type="button" data-i="${w.i}">${thumb(w,"sm")}<div class="txt"><div class="t">${esc(ttl(w))}</div><div class="m">${esc(nice(w.c)||"作者不明")}　${esc(w.p)}${yr(w)?"　"+yr(w):""}</div>${tags(w,1)}</div><span class="go" aria-hidden="true"></span></button></li>`).join("")}</ul>
+    ${hits.length>shown?`<div style="display:flex;justify-content:center;margin-top:14px"><button class="more" id="more" type="button">つづきを見る（あと ${(hits.length-shown).toLocaleString()}冊）</button></div>`:""}${!qc&&hits.length>=5&&skj?`<div style="margin-top:18px">${skj}</div>`:""}`;
 }
 
 // ---------- 本のページ ----------
@@ -945,6 +959,116 @@ function catForQuery(q){const k=nfkc(q).trim();if(k.length<2)return null;
   for(const g of CATGROUPS)for(const c of g.cats){const m=k.match(c.rx);if(m&&m[0]===k)return c;}
   return null;}
 
+// ---------- すきなものからさがす・内容紹介つき（10/17。「シャチが好きな2歳の子」）----------
+// 1. すきなもの辞書（interests.json → kw.json の cx）：シャチ＝しゃち・オルカ・鯱。しゃちほこ・きかんしゃちゅう は外す
+// 2. 書名に出てくる本 ＋ 内容紹介に出てくる本（国立国会図書館の児童書の内容紹介・openBD。kw.json に毎週まとめる）
+// 3. なかまの本（シャチ → クジラ・イルカ → うみのいきもの）。好きなものの本が少なくても、近い本につなげる
+// 4. 辞書にないことば（ダンゴムシ など）は、その場で国立国会図書館に問い合わせる
+// 5. 子どもの年齢をえらぶと、その年齢にあう本を先に並べる（この端末にだけ覚える）
+let KWD=null,SKSHOW=new Map();const NDLQ=new Map();
+const toKata=s=>nfkc(s).replace(/[ぁ-ゖ]/g,c=>String.fromCharCode(c.charCodeAt(0)+0x60)).replace(/\s+/g,"");
+const childAge=()=>{try{const v=localStorage.getItem("ehon_age");return v===null||v===""?null:+v;}catch(e){return null;}};
+let I9W=null;
+function i9w(){if(I9W)return I9W;I9W=new Map();
+  for(const w of WORKS)for(const i of [...w.eds.map(e=>isbn13(e.i)),w.px?isbn13(w.px):""]){if(!i||!i.startsWith("978"))continue;const k=i.slice(3,12),o=I9W.get(k);if(!o||o.score<w.score)I9W.set(k,w);}
+  return I9W;}
+// 印（ISBNの9桁 か「書名｜出版社」）→ 作品
+function refWork(r){if(/^\d{9}$/.test(r))return i9w().get(r)||null;const w=BYKEY.get(r);if(w)return w;const l=SPLITOF.get(r);if(l&&l.length)return l[0];
+  const [t,p]=r.split("|");return (BYNT.get(t)||[]).find(x=>np(x.p)===p)||null;}
+async function loadKw(){
+  try{const K=await (await fetch("kw.json")).json();
+    for(const r in K.form){const w=refWork(r);if(w&&!w._form)w._form=K.form[r];}
+    for(const r in K.age){const w=refWork(r);if(w&&!w._dage)w._dage=K.age[r];}
+    const cx=K.cx.map(c=>({...c,rx:new RegExp(c.rx),nx:c.nx?new RegExp(c.nx,"g"):null,keys:new Set(c.words.map(toKata))}));
+    KWD={tag:K.tag,kw:K.kw,cx,by:new Map(cx.map(c=>[c.id,c])),date:K.date};
+    for(const w of WORKS)w._age=undefined;
+  }catch(e){KWD={tag:{},kw:{},cx:[],by:new Map(),date:""};}
+  KWD.ready=true;
+  // 準備ができたら、いま出している画面を描きなおす
+  const top=stack[stack.length-1];if(top&&top.startsWith("k"))go(top);else if(!top&&$("#q").value.trim())render();}
+// 検索のことばから、すきなものを見つける（「しゃちのえほん」「シャチがでてくる本」も）
+const sukiWord=q=>nfkc(q).trim().replace(/\s*(?:が|の)?(?:でてくる|出てくる|でる|出る)?\s*(?:の)?(?:えほん|絵本|ほん|本|ずかん|図鑑)$/,"").replace(/^(?:すきな|好きな)/,"").trim()||nfkc(q).trim();
+function sukiConcept(q){if(!KWD||!KWD.cx.length)return null;const k=sukiWord(q),kk=toKata(k);if(kk.length<2&&!/[一-龯]/.test(k))return null;
+  for(const c of KWD.cx)if(c.keys.has(kk))return c;
+  for(const c of KWD.cx){const t=c.nx?k.replace(c.nx,"＿"):k,m=t.match(c.rx);if(m&&m[0]===k)return c;}
+  return null;}
+const sukiOk=w=>catOk(w)&&!/点訳|点字/.test(w.t)&&!w.eds.some(e=>/アニメ版|アニメえほん/.test(nfkc(e.t)))&&!(w._form==="A"&&!w.L&&!w.A.length);
+function titleHit(c,w){const t=nfkc([w.t,...w.s].join(" "));const x=c.nx?t.replace(c.nx,"＿"):t;return c.rx.test(x);}
+// すきなもの1つ分の本：[書名に出てくる本, 内容紹介に出てくる本（つよい→よわい）]
+function sukiWorks(c){if(c._ws)return c._ws;
+  const ti=WORKS.filter(w=>sukiOk(w)&&titleHit(c,w)),seen=new Set(ti),de=[];
+  const [s,wk]=KWD.tag[c.id]||[[],[]];
+  for(const [l,st] of [[s,2],[wk,1]])for(const r of l){const w=refWork(r);if(!w||seen.has(w)||!sukiOk(w))continue;seen.add(w);w._st=Math.max(w._st||0,st);de.push(w);}
+  return c._ws=[ti,de];}
+// この本が出てくる「すきなもの」（本のページのタグ。書名 → 内容紹介のつよい順。なかまの大きなくくりは後ろ）
+let REFC=null;
+function sukiTagsOf(w){if(!KWD||!KWD.ready||!sukiOk(w))return [];
+  if(!REFC){REFC=new Map();for(const id in KWD.tag)KWD.tag[id].forEach((l,k)=>{for(const r of l){const x=refWork(r);if(!x)continue;if(!REFC.has(x))REFC.set(x,[]);REFC.get(x).push([id,2-k]);}});}
+  const sc=new Map();for(const c of KWD.cx)if(titleHit(c,w))sc.set(c.id,3);
+  for(const [id,v] of REFC.get(w)||[])sc.set(id,Math.max(sc.get(id)||0,v));
+  const broad=new Set(KWD.cx.filter(c=>!c.up.length).map(c=>c.id));
+  return [...sc].sort((a,b)=>(broad.has(a[0])?1:0)-(broad.has(b[0])?1:0)||b[1]-a[1]).slice(0,6).map(([id])=>KWD.by.get(id));}
+// 辞書にないことば：書名（カタカナの切れ目で）＋ openBD のカタカナ・キーワード ＋ その場で国立国会図書館
+const reEsc=s=>s.replace(/[.*+?^${}()|[\]\\]/g,"\\$&");
+function kwWorks(q){if(!KWD)return [];const raw=sukiWord(q),kk=toKata(raw);if(kk.length<2)return [];
+  const out=new Set(),add=r=>{const w=refWork(r);if(w&&sukiOk(w))out.add(w);};
+  for(const t of [kk,raw])for(const r of KWD.kw[t]||[])add(r);
+  if(kk.length>=3)for(const t in KWD.kw)if(t.length>kk.length&&t.endsWith(kk))for(const r of KWD.kw[t])add(r);
+  const rx=new RegExp("(?<![ァ-ヴー])"+reEsc(kk)+"(?![ァヵ-ヴ])");
+  for(const w of WORKS)if(!out.has(w)&&sukiOk(w)&&rx.test(toKata(w.t)))out.add(w);
+  for(const w of NDLQ.get(kk)||[])if(sukiOk(w))out.add(w);
+  return [...out];}
+async function ndlLive(q){const raw=sukiWord(q),kk=toKata(raw);if(NDLQ.has(kk)||kk.length<2)return;NDLQ.set(kk,[]);
+  try{const u="https://ndlsearch.ndl.go.jp/api/sru?operation=searchRetrieve&version=1.2&recordSchema=dcndl&recordPacking=xml&maximumRecords=200&query="+encodeURIComponent(`description="${kk}" AND ndlc="Y1"`);
+    const x=new DOMParser().parseFromString(await (await fetch(u)).text(),"text/xml"),out=[],ns="*";
+    const rx=new RegExp("(?<![ァ-ヴー])"+reEsc(kk)+"(?![ァヵ-ヴ])|"+reEsc(raw));
+    for(const rec of x.getElementsByTagNameNS(ns,"BibResource")){
+      const txt=[...rec.getElementsByTagNameNS(ns,"abstract"),...rec.getElementsByTagNameNS(ns,"description"),...rec.getElementsByTagNameNS(ns,"tableOfContents"),...rec.getElementsByTagNameNS(ns,"title")].map(e=>e.textContent).join("\n");
+      if(!rx.test(toKata(txt)))continue;
+      let w=null;for(const e of rec.getElementsByTagNameNS(ns,"identifier")){if(!/ISBN/.test(e.getAttribute("rdf:datatype")||""))continue;const i=isbn13(e.textContent);if(i){w=i9w().get(i.slice(3,12));if(w)break;}}
+      if(!w){const t=(rec.getElementsByTagNameNS(ns,"title")[0]||{}).textContent||"",p=(rec.querySelector("publisher name")||{}).textContent||"";w=BYKEY.get(nt(t)+"|"+np(p))||null;}
+      if(w&&!out.includes(w)){w._st=Math.max(w._st||0,1);out.push(w);}}
+    NDLQ.set(kk,out);
+  }catch(e){NDLQ.set(kk,[]);}
+  const top=stack[stack.length-1];if(top==="k"+q)showSuki(q,true);}
+// 年齢にあうか：2＝あう、1＝わからない、0＝ほかの年齢
+function ageFit(w,a){if(a===null)return 1;const g=ageOf(w);if(!g)return 1;const lo=g.g[0],hi=g.g[1]==null?lo+3:g.g[1];return lo<=a+0.5&&hi>=a?2:0;}
+const sukiSort=(l,a)=>l.slice().sort((x,y)=>ageFit(y,a)-ageFit(x,a)||(y._st||3)-(x._st||3)||y.score-x.score||(x._form==="E"?0:1)-(y._form==="E"?0:1)||y.eds.length-x.eds.length);
+const ageWhy=w=>{const g=ageOf(w);return g?ageTxt(g.g):"";};
+function ageChips(){const a=childAge(),l=[["","すべて"],...[0,1,2,3,4,5].map(n=>[String(n),n+"歳"])];
+  return `<div class="agechips"><span>なんさいの子に？</span><div class="chips">${l.map(([v,t])=>`<button class="chip age${(a===null?"":String(a))===v?" on":""}" type="button" data-age="${v}" aria-pressed="${(a===null?"":String(a))===v}">${t}</button>`).join("")}</div></div>`;}
+function sukiTier(id,title,sub,l,a){if(!l.length)return "";const n=SKSHOW.get(id)||18,ws=sukiSort(l,a);
+  const fit=a===null?0:ws.filter(w=>ageFit(w,a)===2).length;
+  return `<section class="shelf sk"><h3>${esc(title)} <small>${l.length.toLocaleString()}冊</small></h3>${sub||fit?`<p class="sub">${esc(sub||"")}${fit?`${sub?"。":""}${a}歳にあう本 ${fit}冊を先に`:""}</p>`:""}
+    <div class="board grid">${ws.slice(0,n).map(w=>{const f=ageFit(w,a);return book(w,false,ageWhy(w)).replace('class="book"',`class="book${a!==null&&f===0?" dim":""}"`);}).join("")}</div>
+    ${ws.length>n?`<button class="read" type="button" data-skmore="${esc(id)}">もっと見る（あと${(ws.length-n).toLocaleString()}冊）</button>`:""}</section>`;}
+// 画面：すきなもの（辞書にある）または 辞書にないことば
+function sukiHtml(q){if(!KWD||!KWD.ready)return null;const a=childAge(),c=sukiConcept(q);
+  const note=KWD.date?`<p class="note sknote">書名と、国立国会図書館の児童書の内容紹介・出版社の内容紹介（openBD）から探しています（${KWD.date}）。紹介文のない本は、書名でだけ探しています。</p>`:"";
+  if(c){const [ti,de]=sukiWorks(c),shown=new Set([...ti,...de]);
+    const ups=c.up.map(id=>KWD.by.get(id)).filter(Boolean).slice(0,3).map(u=>{const [t2,d2]=sukiWorks(u);return [u,[...t2,...d2].filter(w=>!shown.has(w)&&(shown.add(w),true))];}).filter(([,l])=>l.length);
+    const total=ti.length+de.length;
+    return {n:total,c,html:`<div class="page skpage">
+      <div class="skhead"><div class="eyebrow">すきなものからさがす</div><h2>「${esc(c.name)}」が出てくる本</h2>
+      <p class="about">${total.toLocaleString()}冊。${total<12&&ups.length?`${esc(c.name)}の本は多くないので、なかまの本もならべています。`:"お話の主役になっている本と、とちゅうで出てくる本に分けています。"}</p></div>
+      ${ageChips()}
+      ${sukiTier(c.id+"t",`書名に「${c.name}」`,"主役になっている本",ti,a)}
+      ${sukiTier(c.id+"d",`お話や図鑑に「${c.name}」が出てくる`,"内容紹介に出てくる本",de,a)}
+      ${!total?`<div class="empty">「${esc(c.name)}」が出てくる本は、まだ見つかっていません。</div>`:""}
+      ${ups.map(([u,l])=>sukiTier(c.id+"u"+u.id,`なかまの「${u.name}」の本`,"",l,a)).join("")}
+      ${note}</div>`};}
+  const k=sukiWord(q),ws=kwWorks(q),busy=NDLQ.has(toKata(k))?"":`<p class="note skbusy">国立国会図書館の内容紹介からもさがしています…</p>`;
+  return {n:ws.length,c:null,html:`<div class="page skpage">
+    <div class="skhead"><div class="eyebrow">すきなものからさがす</div><h2>「${esc(k)}」が出てくる本</h2>
+    <p class="about">${ws.length.toLocaleString()}冊。</p></div>
+    ${ageChips()}${sukiTier("kw:"+k,`「${k}」が出てくる本`,"書名・内容紹介から",ws,a)}
+    ${!ws.length&&!busy?`<div class="empty">「${esc(k)}」が出てくる本は見つかりませんでした。ひらがな・カタカナを変えたり、なかまのことば（「うみ」「どうぶつ」など）で探してみてください。</div>`:""}${busy}${note}</div>`};}
+function showSuki(q,keep){const y=keep?window.scrollY:0;$("#searchBox").hidden=true;$("#status").textContent="";
+  const r=sukiHtml(q);
+  if(!r){$("#view").innerHTML=`<div class="page">${backBar()}<p class="note">本だなを準備しています…</p></div>`;return;}
+  $("#view").innerHTML=r.html.replace('<div class="page skpage">',`<div class="page skpage">${backBar()}`);window.scrollTo(0,y);
+  if(!r.c)ndlLive(q);}
+
 // ---------- 何歳向けの目安（10/12。親戚の声「何歳向けかわかりにくい」）----------
 // 1. 図書館のおすすめリストの年齢の段（いちばん幅のせまいもの）　2. 書名・シリーズ名に書いてある年齢
 // どちらも無い本には出さない（推しはかりはしない）
@@ -966,13 +1090,15 @@ function ageOf(w){if(w._age!==undefined)return w._age;let best=null;
     if((m=t.match(/(?<![0-9])([0-6])\s*[・.]\s*([0-6])(?:\s*[・.]\s*([0-6]))?\s*[.]?\s*(?:歳|才|さい)/)))g=[+m[1],+(m[3]||m[2])];
     else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(半)?\s*(?:から|ごろ|頃|~|〜)/)))g=[+m[1]+(m[2]?0.5:0),null];
     else if((m=t.match(/(?<![0-9])([0-9])\s*(?:歳|才|さい)\s*(?:の|児|向)/)))g=[+m[1],+m[1]];
-    else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2/.test(t))g=[0,2];
+    else if(/あかちゃんの(?:絵本|えほん|本|ほん)|0\.1\.2\.|0・1・2|ボードブック|ベビー(?:ブック|えほん|絵本)|あかちゃんえほん|赤ちゃん絵本|てのひらえほん/.test(t))g=[0,2];
     if(g&&g[0]<7&&(g[1]==null||g[1]>=g[0]))best={g,src:"書名・シリーズ名から"};}
   // 3. 出版社がシリーズに決めている対象年齢（series_age.json）。書名に年齢が書いてある本より先に使う
   if(!best||best.src[0]==="書"){let sb=null;
     for(const s of w.s){const e=SERAGE.get(nfkc(s).replace(/\s+/g," ").trim());if(!e||(e.from&&+(w.yr||0)<e.from))continue;
       const span=(e.max??6)-e.min;if(!sb||span<sb.span)sb={g:[e.min,e.max],span,src:"出版社のシリーズの対象年齢から"};}
     if(sb)best=sb;}
+  // 4. 内容紹介に書いてある年齢（「読んであげるなら 3才から」「0・1・2歳」など。kw.json・10/17）
+  if((!best||best.src[0]==="書")&&w._dage)best={g:w._dage,src:"内容紹介から"};
   return w._age=best;}
 const ageTxt=g=>{const f=x=>Math.floor(x)+(x%1?"歳半":"歳");return g[1]==null?f(g[0])+"から":g[0]===g[1]?f(g[0]):`${Math.floor(g[0])}${g[0]%1?"歳半":""}〜${f(g[1])}`;};
 function show(i){
@@ -999,6 +1125,7 @@ function show(i){
     .filter(([,l])=>l.some(x=>x!==w));
   // おなじテーマ（カテゴリ）の本：書名に「ねこ」などが入っている本を、おすすめが多い順に（10/12）
   const cs=catsOf(w);
+  const sc=sukiTagsOf(w);
   for(const c of cs.slice(0,2)){const l=catWorks(c).filter(x=>x!==w&&!seen.has(vk(x))&&!isForeign(x)).slice(0,12);l.cat=c.id;if(l.length>=3)rows.push([`「${c.name}」の出てくる本`,l]);}
   const nearHtml=rows.length?`<section class="shelf near"><h3>この本に近い本</h3>${rows.map(([lab,l])=>`<div class="tier"><h4><span>${esc(lab)}</span>${l===tiers.作者?`<button type="button" data-who="${encodeURIComponent(w.a)}">ぜんぶ見る</button>`:l.cat?`<button type="button" data-cat="${l.cat}">ぜんぶ見る</button>`:""}</h4><div class="board">${l.map(x=>book(x,x===w)).join("")}</div></div>`).join("")}</section>`:"";
   const col=COLBYWHO[w.a];
@@ -1007,7 +1134,7 @@ function show(i){
   const facts=(w.en?"原書・外国語版<br>":"")+(ag?`<span class="agey">目安 <b>${ageTxt(ag.g)}</b><small>${ag.src}</small></span><br>`:"")+esc(w.p)+(yr(w)?`<br>${yr(w)}年に出た本`:"")+(w.bi?`<br>${w.bi==="英語版"?"英語版":esc(w.bi)+"の版"}`:"");
   $("#view").innerHTML=`<div class="page">
     ${backBar()}
-    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${cs.length?`<p class="ctags">${cs.map(catChip).join("")}</p>`:""}</div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
+    <div class="hero"><div>${thumb(w,"lg").replace('class="cv ',`data-isbn="${esc(isb||"")}" class="cv `)}</div><div class="txt"><h2>${esc(ttl(w))}</h2><p class="who">${w.a?`<button type="button" class="wholink" data-who="${encodeURIComponent(w.a)}">${esc(authorName(w.a))}<span>の本をぜんぶ見る</span></button>`:"作者不明"}</p><p class="pub">${facts}</p>${sc.length?`<p class="ctags">${sc.map(c=>`<button class="chip cat" type="button" data-suki="${esc(c.name)}">${esc(c.name)}</button>`).join("")}</p>`:cs.length?`<p class="ctags">${cs.map(catChip).join("")}</p>`:""}</div>${(st=>st?`<div class="htags">${st}</div>`:"")(srcTags(w))}</div>
     ${isb?`<a class="lib" href="https://calil.jp/book/${isbn10(isb)}" target="_blank" rel="noopener">${PIN}<span><b>近くの図書館でさがす</b><small>カーリルで、図書館にあるか・いま借りられるかを見ます</small></span></a>`
          :`<a class="lib off" href="https://calil.jp/search?q=${encodeURIComponent(w.t)}" target="_blank" rel="noopener">${PIN}<span><b>書名で図書館をさがす</b><small>この版は ISBN がないため、カーリルで書名から探します</small></span></a>`}
     ${col?colCard(col,true):""}
@@ -1104,12 +1231,24 @@ function goTo(key){
   else if(key.startsWith("a"))showWho(decodeURIComponent(key.slice(1)));
   else if(key.startsWith("t"))showTheme(key.slice(1));
   else if(key.startsWith("g"))showCat(key.slice(1));
+  else if(key.startsWith("k"))showSuki(key.slice(1));
   else if(key.startsWith("s")){const [sid,sec]=key.slice(1).split("#");showSrc(sid,sec);}
   else show(+key.slice(1));}
 
 document.addEventListener("click",e=>{
   const j=e.target.closest("[data-jump]");
   if(j){document.getElementById(j.dataset.jump)?.scrollIntoView({block:"start"});return;}
+  // 子どもの年齢（すきなものの画面。この端末にだけ覚える・10/17）
+  const ag=e.target.closest("[data-age]");
+  if(ag){try{localStorage.setItem("ehon_age",ag.dataset.age);}catch(_){}const y=window.scrollY,top=stack[stack.length-1];
+    if(top&&top.startsWith("k"))showSuki(top.slice(1),true);else render();window.scrollTo(0,y);return;}
+  const sm=e.target.closest("[data-skmore]");
+  if(sm){const id=sm.dataset.skmore,y=window.scrollY,top=stack[stack.length-1];SKSHOW.set(id,(SKSHOW.get(id)||18)+36);
+    if(top&&top.startsWith("k"))showSuki(top.slice(1),true);else render();window.scrollTo(0,y);return;}
+  const tm2=e.target.closest("[data-titlemode]");
+  if(tm2){TITLEMODE=$("#q").value.trim();render();return;}
+  const sj=e.target.closest("[data-suki]");
+  if(sj){if(!stack.length)listScroll=window.scrollY;nav("k"+sj.dataset.suki);return;}
   const mc=e.target.closest("[data-catmore]");
   if(mc){catShown+=60;showCat(mc.dataset.catmore,true);return;}
   const b=e.target.closest("[data-i],[data-col],[data-src],[data-who],[data-theme],[data-cat]");
@@ -1146,10 +1285,10 @@ window.addEventListener("popstate",e=>{if(!READY)return;
 if("scrollRestoration" in history)history.scrollRestoration="manual";
 function startFromUrl(){
   const h=(()=>{try{return decodeURIComponent(location.hash.slice(1));}catch(e){return "";}})();
-  if(/^[bacstg]./.test(h)){stack=[h];try{history.replaceState({stack:stack.slice(),d:0},"");}catch(e){}go(h);}
+  if(/^[bacstgk]./.test(h)){stack=[h];try{history.replaceState({stack:stack.slice(),d:0},"");}catch(e){}go(h);}
   else{try{history.replaceState({stack:[],d:0},"",urlOf([]));}catch(e){}}}
 $("#home").addEventListener("keydown",e=>{if(e.key==="Enter"){goHome(false);}});
-let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;tm=setTimeout(render,120);});
+let tm;$("#q").addEventListener("input",()=>{clearTimeout(tm);shown=40;TITLEMODE=null;SKSHOW.clear();tm=setTimeout(render,120);});
 if(RK_ON&&RK.affiliateId){const a=document.getElementById("adNote");if(a)a.hidden=false;}
 if(RK_ON){const n=document.getElementById("coverNote");if(n)n.innerHTML='表紙は本を開いたときに<a href="https://books.rakuten.co.jp/" target="_blank" rel="noopener">楽天ブックス</a>から読み込みます（<a href="https://webservice.rakuten.co.jp/" target="_blank" rel="noopener">Supported by Rakuten Developers</a>）。';}
 render();load();
