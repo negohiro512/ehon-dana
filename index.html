@@ -271,8 +271,8 @@ footer a{color:inherit}
     <span id="coverNote">表紙はまだ仮のものです。</span>図書館の所蔵は <a href="https://calil.jp/" target="_blank" rel="noopener">カーリル</a> で調べます。　モック v3.5（10/17 すきなものを内容紹介からも）
     <details id="about"><summary>このサイトについて・プライバシー</summary>
       <p>絵本だなは、個人が運営している、絵本を図書館でさがすためのサイトです。会員登録はなく、名前やメールアドレスなどはお預かりしません。</p>
-      <p>「さっき見た本」と、前に出た特集は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
-      <p>表紙を出すときは Google ブックスや楽天ブックスに、図書館をさがすときはカーリルに、その本のISBNや書名が送られます。それぞれのサービスの決まりにしたがって扱われます。</p>
+      <p>「さっき見た本」、前に出た特集、「なんさいの子に？」でえらんだ年齢は、お使いの端末の中（ブラウザの保存領域）にだけ覚えます。運営者には送られません。アクセス解析は使っていません。</p>
+      <p>表紙を出すときは Google ブックスや楽天ブックスに、図書館をさがすときはカーリルに、その本のISBNや書名が送られます。本をさがすときに、さがしたことばや本のISBNが国立国会図書館サーチや openBD に送られることがあります。文字の形（フォント）は Google Fonts から読み込みます。それぞれのサービスの決まりにしたがって扱われます。</p>
       <p id="adNote" hidden>このサイトは楽天アフィリエイトに参加しています。「広告」と書いた楽天ブックスへのリンクから本が買われると、運営者に紹介料が入ります（値段は変わりません）。リンクを押すと、楽天がクッキーを使って記録します。</p>
       <p>お問い合わせ先は準備中です。</p>
     </details>
@@ -287,7 +287,7 @@ const EXCLUDE_PUB=/日本障害者リハビリテーション協会|ふきのと
 // コラム。lead＝本のページに出す書き出し、body＝「つづきを読む」の先
 const COLUMNS={
   kagakui:{who:"加岳井, 広",title:"50歳で、はじめての絵本を出した人",draft:true,
-    // 10/6 Hiroの家の場面（膝の上・左右に揺れて指さし・めくる前の沈黙・どてっ／びろーん）を入口にした第2稿
+    // 10/6 家での場面（膝の上・左右に揺れて指さし・めくる前の沈黙・どてっ／びろーん）を入口にした第2稿
     lead:["「だ、る、ま、さ、ん、が」。膝の上の子どもが、からだを左右に揺らしながら、一文字ずつ指をさしていきます。ページをめくるまでの、少しの沈黙。そして「どてっ」。「びろーん」。上の子も下の子も、これを何度も何度もやりました。次のページに何が出てくるか、すっかり覚えてしまうくらいに。", "まだ言葉もおぼつかない子が、どうしてこの本でこんなに体を動かすのだろう。気になって、作者のことを調べてみました。"],
     body:["『だるまさんが』を描いたかがくいひろしさんは、絵本作家になる前の28年間、特別支援学校の先生でした。はじめての絵本『おもちのきもち』が出たのは2005年。50歳のときです。", "教室では、生徒一人ひとりに合わせて、反応を引き出す教材や、楽しめる授業を考えていたそうです。言葉で返事をするのがむずかしい子もいる教室で、何をしたら笑うのか、どこで体が動くのかを、毎日見ていた人です。", "『だるまさんが』は、その3年後の2008年に出ました。うちの子たちの揺れ方も、めくる前の沈黙も、教室で子どもを見つづけてきた人が、ページの中に用意しておいたものだったのかもしれません。体が先に動いて、言葉はあとからついてくる。そういう本です。", "同じ年に『だるまさんの』、翌年に『だるまさんと』が出て、3冊でひと組になりました。", "2009年、かがくいさんは54歳で亡くなりました。絵本作家として過ごしたのは4年ほど。そのあいだに描いた絵本は16冊です。おもち、やかん、おふとん、まくら。家の中にあるものが、ちょっとだけ動き出す話がたくさんあります。", "「だるまさん」の3冊は、そのあとも読まれつづけ、1000万部を超えました。亡くなってからは、原画やアイデアノート、先生だったころの授業の記録を集めた展覧会が、各地の美術館をめぐっています。", "この本だなに集めた、図書館・自治体のおすすめリストと絵本の賞を調べてみると、『だるまさんが』は5か所で選ばれていました。でも『だるまさんの』と『だるまさんと』は、ひとつもありません。代表作を1冊だけ挙げるなら、それで正しいのだと思います。けれど、膝の上で「どてっ」を覚えてしまった子には、次に開ける本があと2冊あります。", "16冊のどれにも、28年分の教室が入っています。"],
     sources:[["講談社『おもちのきもち』作品ページ（著者紹介）","https://www.kodansha.co.jp/book/products/0000138141"],
@@ -627,7 +627,7 @@ async function load(){
       CATGROUPS=G.groups.map(g=>({name:g.name,cats:g.cats.map(c=>{const x={...c,rx:new RegExp(c.re),nx:c.ng?new RegExp(c.ng,"g"):null,group:g.name};CATBY.set(c.id,x);return x;})}));}catch(e){CATGROUPS=[];}
     // 出版社がシリーズに決めている対象年齢（10/12）
     try{const A=await (await fetch("series_age.json")).json();for(const e of A.series)for(const n of e.names)SERAGE.set(nfkc(n).replace(/\s+/g," ").trim(),e);}catch(e){}
-    // シリーズ（Hiro確定の34＋自動判定。10/3）
+    // シリーズ（確かめ済みの34＋自動判定。10/3）
     try{const S=await (await fetch("series.json")).json();
       S.forEach((x,si)=>{const ws=[],seen=new Set();
         for(const e of x.k){const ks=Array.isArray(e)?e:[e];
@@ -885,7 +885,7 @@ function rkGet(params,key,pick,pri=1,live){
       try{const j=await (await fetch(u)).json();
         if(!Array.isArray(j.Items))continue;
         const it=pick(j.Items.map(x=>x.Item||x));
-        // 楽天の「NO IMAGE 画像はありません」の絵は表紙として使わない（仮の表紙のほうがよい。10/5 Hiro）
+        // 楽天の「NO IMAGE 画像はありません」の絵は表紙として使わない（仮の表紙のほうがよい。10/5）
         const im=it?(it.largeImageUrl||it.mediumImageUrl||""):"",noimg=/noimage|no_image|now_?printing|\.gif(\?|$)/i.test(im);
         const r=it?{img:noimg?"":im.replace(/\?_ex=\d+x\d+$/,"?_ex=300x300"),isbn:it.isbn||"",url:/^https:\/\/hb\.afl\.rakuten\.co\.jp\//.test(it.affiliateUrl||"")?it.affiliateUrl:/^https:\/\/books\.rakuten\.co\.jp\//.test(it.itemUrl||"")?it.itemUrl:""}:null;
         try{sessionStorage.setItem(key,JSON.stringify(r));}catch(e){}return r;}catch(e){}}
@@ -915,7 +915,7 @@ async function heroCover(isb,w){
   // アフィリエイトのリンクには「広告」と書く（景品表示法のステマ規制）
   const ad=/^https:\/\/hb\.afl\.rakuten\.co\.jp\//.test(shop)?`<span class="ad">広告</span>`:"";
   el.insertAdjacentHTML("afterend",`<div class="credit">表紙：<a href="${esc(shop)}" target="_blank" rel="noopener sponsored">楽天ブックス</a>${ad}</div>`);
-  // 図書館のボタンの下に、目立たない「買う」ボタン（図書館が先。10/4 Hiro）
+  // 図書館のボタンの下に、目立たない「買う」ボタン（図書館が先。10/4）
   const lib=document.querySelector(".page .lib");
   if(r.url&&lib&&!document.querySelector(".buy"))lib.insertAdjacentHTML("afterend",`<a class="buy" href="${esc(r.url)}" target="_blank" rel="noopener sponsored">手元に置きたくなったら<b>楽天ブックスで買う</b>${ad}</a>`);
 }
@@ -1104,7 +1104,7 @@ const ageTxt=g=>{const f=x=>Math.floor(x)+(x%1?"歳半":"歳");return g[1]==null
 function show(i){
   const w=WORKS[i];if(!w)throw new Error("no work");rememberWork(w);
   $("#searchBox").hidden=true;
-  // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5 Hiro）
+  // 今の版（楽天で今買える版）があればそれを正とする：表紙・図書館・買う をそろえる（10/5）
   // 本だなの表紙と同じ順（今の版 → 新しい版から）で選ぶ。本だなと本のページで表紙がちがわないように（10/9）
   const isb=heroIsbn(w);
   // この本に近い本：つづき → おなじ作者（出た順） → おなじシリーズ。おすすめの数では並べない

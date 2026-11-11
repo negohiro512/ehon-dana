@@ -24,4 +24,4 @@ jobs:
           git config user.name "ehon-newbooks"
           git config user.email "actions@users.noreply.github.com"
           git add new.json isbn_plus.json
-          git diff --cached --quiet || (git commit -m "新刊：$(date +%Y-%m-%d)" && git push)
+          git diff --cached --quiet || (git commit -m "新刊：$(date +%Y-%m-%d)" && git pull --rebase && git push)
