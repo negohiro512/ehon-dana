@@ -6,7 +6,7 @@
 - index.html … アプリ本体（版は画面のいちばん下に出る）
 - data.txt … 索引（約10万作品。国立国会図書館の書誌。gzip を base64 にしたもの）
 - lists.json … 賞・図書館の選書リスト（あわせて104本）／series.json … シリーズ／series_age.json … 出版社がシリーズに決めている対象年齢（出典URLつき）
-- themes.json … 季節・特集の本だな／categories.json … すきなものからさがす（書名のことば）
+- themes.json … 季節・特集の本だな（16本）／categories.json … すきなものからさがす（書名のことば）
 - interests.json … すきなもの辞書（120語）／kw.json … 辞書のことばが「出てくる本」の索引（文章は持たず、本の印と年齢の目安だけ）
 - new.json … 今月の新作（書誌は openBD）／isbn_plus.json … ISBNのない昔の本の、今の版のISBN（openBD で書名が合うものだけ）
 - instock.json … キャラクターもののうち、いま書店で買える本（openBD に載っている本）
