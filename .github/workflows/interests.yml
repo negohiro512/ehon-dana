@@ -1,4 +1,4 @@
-# すきなものさがしの索引（kw.json）を openBD からつくりなおす。毎週月曜の朝（日本時間 5:58。新刊の後・点検の前）と、辞書（interests.json）を変えたとき
+# すきなものさがしの索引（kw.json）を、国立国会図書館の内容紹介と openBD からつくりなおす。毎週月曜の朝（日本時間 5:58 に始まり、長いと3時間ほど。新刊・点検と重なるので、どの自動実行も push の前に pull --rebase する）と、辞書（interests.json）を変えたとき
 name: interests-index
 on:
   schedule:
